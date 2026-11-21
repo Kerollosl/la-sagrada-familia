@@ -99,12 +99,10 @@ export function BasilicaCanvas({
 
   const cameraGoalRef = useRef<{ position: THREE.Vector3; target: THREE.Vector3 } | null>(null);
   const requestWakeRef = useRef<(() => void) | null>(null);
-  const projectLabelsRef = useRef<(() => void) | null>(null);
 
   useEffect(() => {
     yearRef.current = year;
     requestWakeRef.current?.();
-    projectLabelsRef.current?.();
   }, [year]);
 
   useEffect(() => {
@@ -140,18 +138,16 @@ export function BasilicaCanvas({
   useEffect(() => {
     focusModeRef.current = focusMode;
     requestWakeRef.current?.();
-    projectLabelsRef.current?.();
   }, [focusMode]);
 
   useEffect(() => {
     labelsVisibleRef.current = labelsVisible;
-    projectLabelsRef.current?.();
+    requestWakeRef.current?.();
   }, [labelsVisible]);
 
   useEffect(() => {
     selectedFeatureIdRef.current = selectedFeatureId;
     requestWakeRef.current?.();
-    projectLabelsRef.current?.();
   }, [selectedFeatureId]);
 
   useEffect(() => {
@@ -190,6 +186,11 @@ export function BasilicaCanvas({
         ),
         target: DEFAULT_TARGET.clone(),
       };
+    } else {
+      cameraGoalRef.current = {
+        position: DEFAULT_CAMERA_POS.clone(),
+        target: DEFAULT_TARGET.clone(),
+      };
     }
     requestWakeRef.current?.();
   }, [cameraHint]);
@@ -211,6 +212,7 @@ export function BasilicaCanvas({
       return;
     }
 
+    const gl = renderer.getContext() as WebGL2RenderingContext;
     const width = container.clientWidth || window.innerWidth;
     const height = container.clientHeight || window.innerHeight;
 
@@ -298,14 +300,29 @@ export function BasilicaCanvas({
     scene.add(starfield);
 
     // Studio & Mediterranean environment reflection
-    const pmrem = new THREE.PMREMGenerator(renderer);
-    const envTarget = pmrem.fromScene(new RoomEnvironment(), 0.04);
+    function createEnvironment() {
+      const pmrem = new THREE.PMREMGenerator(renderer);
+      const room = new RoomEnvironment();
+      const target = pmrem.fromScene(room, 0.04);
+      room.dispose();
+      pmrem.dispose();
+      return target;
+    }
+
+    let envTarget = createEnvironment();
     scene.environment = envTarget.texture;
     scene.environmentIntensity = initialAtmos.envIntensity;
-    pmrem.dispose();
 
     const camera = new THREE.PerspectiveCamera(44, width / height, 0.5, 500);
     camera.position.copy(DEFAULT_CAMERA_POS);
+
+    function updateProjection(w: number, h: number) {
+      camera.aspect = w / h;
+      // Widen the portrait view to keep the façades inside the frame.
+      camera.zoom = Math.min(1, Math.max(0.55, camera.aspect / 0.85));
+      camera.updateProjectionMatrix();
+    }
+    updateProjection(width, height);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.target.copy(DEFAULT_TARGET);
@@ -369,15 +386,13 @@ export function BasilicaCanvas({
         const isBuilt = yearRef.current >= feat.revealYear - 2;
         const isSelected = selectedFeatureIdRef.current === feat.id;
         if (!showAny || (!isBuilt && !focusModeRef.current && !isSelected)) {
-          el.style.opacity = '0';
-          el.style.pointerEvents = 'none';
+          el.hidden = true;
           continue;
         }
 
         _projVec.set(...feat.anchorPosition).project(camera);
         if (_projVec.z > 1 || _projVec.z < -1) {
-          el.style.opacity = '0';
-          el.style.pointerEvents = 'none';
+          el.hidden = true;
           continue;
         }
 
@@ -386,17 +401,15 @@ export function BasilicaCanvas({
 
         // Keep labels comfortably inside viewport bounds
         if (sx < 40 || sx > vw - 40 || sy < 24 || sy > vh - 120) {
-          el.style.opacity = '0';
-          el.style.pointerEvents = 'none';
+          el.hidden = true;
           continue;
         }
 
+        el.hidden = false;
         el.style.transform = `translate3d(${Math.round(sx)}px, ${Math.round(sy)}px, 0)`;
         el.style.opacity = isBuilt || isSelected ? '1' : '0.58';
-        el.style.pointerEvents = 'auto';
       }
     }
-    projectLabelsRef.current = projectLabels;
 
     function applyAtmosphere(tod: number) {
       const atmos = computeAtmosphereState(tod);
@@ -442,38 +455,49 @@ export function BasilicaCanvas({
     }
 
     let isDisposed = false;
+    let contextLost = false;
     let frameId = 0;
-    let loopActive = false;
-    let renderBusy = false;
-    let renderDirty = false;
+    let timerId = 0;
+    let gpuFence: WebGLSync | null = null;
+    let updatingControls = false;
     let userDragging = false;
-    let lastTime = performance.now();
+    let lastTime: number | null = null;
     let lastHudSync = 0;
     let lastTodSync = 0;
     let lastHoverRaycast = 0;
     let elapsedTotal = 0;
-    let pointerDownX = 0;
-    let pointerDownY = 0;
+    let pendingClick: { pointerId: number; x: number; y: number } | null = null;
 
-    function afterDraw(cb: () => void) {
-      const gl = renderer.getContext() as WebGL2RenderingContext;
-      if (!gl || typeof gl.fenceSync !== 'function') {
-        frameId = window.setTimeout(cb, 80);
-        return;
+    function suspendRendering() {
+      cancelAnimationFrame(frameId);
+      clearTimeout(timerId);
+      frameId = 0;
+      timerId = 0;
+      lastTime = null;
+      if (gpuFence) {
+        gl.deleteSync(gpuFence);
+        gpuFence = null;
       }
-      const sync = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
+    }
+
+    function waitForSoftwareFrame() {
+      gpuFence = gl.fenceSync(gl.SYNC_GPU_COMMANDS_COMPLETE, 0);
       gl.flush();
-      const poll = () => {
-        if (isDisposed) return;
-        const state = sync && gl.getSyncParameter(sync, gl.SYNC_STATUS);
-        if (state === gl.UNSIGNALED) {
-          frameId = window.setTimeout(poll, 5);
-        } else {
-          if (sync) gl.deleteSync(sync);
-          frameId = window.setTimeout(cb, 80);
+
+      function poll() {
+        if (gpuFence && gl.getSyncParameter(gpuFence, gl.SYNC_STATUS) === gl.UNSIGNALED) {
+          timerId = window.setTimeout(poll, 8);
+          return;
         }
-      };
-      frameId = window.setTimeout(poll, 5);
+        if (gpuFence) {
+          gl.deleteSync(gpuFence);
+          gpuFence = null;
+        }
+        timerId = 0;
+        frameId = requestAnimationFrame(tick);
+      }
+
+      timerId = window.setTimeout(poll, 80);
     }
 
     const isTodTransitioning = () => {
@@ -603,96 +627,34 @@ export function BasilicaCanvas({
       );
     }
 
-    function tick() {
-      if (isDisposed) return;
-      const now = performance.now();
-      const rawDt = Math.max(0.001, (now - lastTime) / 1000);
-      const dt = Math.min(0.12, rawDt);
-      const todDt = Math.min(0.4, rawDt);
-      lastTime = now;
+    function tick(now: number) {
+      frameId = 0;
+      if (isDisposed || contextLost || document.hidden) return;
 
-      stepSimulation(dt, todDt);
-      controls.update();
+      const rawDt = lastTime === null ? 1 / 60 : (now - lastTime) / 1000;
+      lastTime = now;
+      stepSimulation(Math.min(0.12, rawDt), Math.min(0.4, rawDt));
+
+      updatingControls = true;
+      const cameraMoved = controls.update();
+      updatingControls = false;
       renderer.render(scene, camera);
       projectLabels();
 
-      if (needsContinuousLoop()) {
-        if (isSoftwareGl) {
-          afterDraw(tick);
-        } else {
-          frameId = requestAnimationFrame(tick);
-        }
+      if (needsContinuousLoop() || (controls.enableDamping && cameraMoved)) {
+        if (isSoftwareGl) waitForSoftwareFrame();
+        else requestRender();
       } else {
-        loopActive = false;
+        lastTime = null;
       }
     }
 
     function requestRender() {
-      if (isDisposed || loopActive) return;
-      if (renderBusy) {
-        renderDirty = true;
-        return;
-      }
-      renderBusy = true;
-      frameId = requestAnimationFrame(() => {
-        if (isDisposed) return;
-        renderDirty = false;
-        const now = performance.now();
-        lastTime = now;
-
-        const atmos = applyAtmosphere(currentTodRef.current);
-        rig.applyProgress(computePhaseProgress(yearRef.current), elapsedTotal, atmos);
-        rig.applyLivingScene(
-          0,
-          elapsedTotal,
-          atmos,
-          weatherModeRef.current,
-          birdsEnabledRef.current
-        );
-        rig.setFocusHighlight(
-          selectedFeatureIdRef.current,
-          hoveredFeatureIdRef.current,
-          focusModeRef.current,
-          yearRef.current
-        );
-        controls.update();
-        renderer.render(scene, camera);
-        projectLabels();
-
-        const done = () => {
-          renderBusy = false;
-          if (needsContinuousLoop()) {
-            wakeLoop();
-          } else if (renderDirty) {
-            requestRender();
-          }
-        };
-        if (isSoftwareGl) {
-          afterDraw(done);
-        } else {
-          done();
-        }
-      });
+      if (isDisposed || contextLost || document.hidden || frameId || timerId) return;
+      frameId = requestAnimationFrame(tick);
     }
 
-    function wakeLoop() {
-      if (isDisposed) return;
-      if (needsContinuousLoop()) {
-        if (!loopActive) {
-          loopActive = true;
-          lastTime = performance.now();
-          if (isSoftwareGl) {
-            afterDraw(tick);
-          } else {
-            frameId = requestAnimationFrame(tick);
-          }
-        }
-      } else {
-        requestRender();
-      }
-    }
-
-    requestWakeRef.current = wakeLoop;
+    requestWakeRef.current = requestRender;
 
     const pickHitFeature = (clientX: number, clientY: number): string | null => {
       const rect = renderer.domElement.getBoundingClientRect();
@@ -712,12 +674,16 @@ export function BasilicaCanvas({
     };
 
     const handlePointerDown = (e: PointerEvent) => {
-      pointerDownX = e.clientX;
-      pointerDownY = e.clientY;
+      pendingClick = e.isPrimary && e.button === 0
+        ? { pointerId: e.pointerId, x: e.clientX, y: e.clientY }
+        : null;
     };
 
     const handlePointerMove = (e: PointerEvent) => {
-      if (userDragging) return;
+      if (pendingClick && Math.hypot(e.clientX - pendingClick.x, e.clientY - pendingClick.y) > 6) {
+        pendingClick = null;
+      }
+      if (userDragging || e.pointerType === 'touch') return;
       const now = performance.now();
       if (now - lastHoverRaycast < 50) return;
       lastHoverRaycast = now;
@@ -726,23 +692,31 @@ export function BasilicaCanvas({
       if (hitId !== hoveredFeatureIdRef.current) {
         hoveredFeatureIdRef.current = hitId;
         renderer.domElement.style.cursor = hitId ? 'pointer' : '';
-        if (!loopActive) requestRender();
+        requestRender();
       }
     };
 
     const handlePointerUp = (e: PointerEvent) => {
-      const moved = Math.hypot(e.clientX - pointerDownX, e.clientY - pointerDownY);
-      if (moved > 6) return; // drag orbit, not click
+      const click = pendingClick;
+      pendingClick = null;
+      if (!click || click.pointerId !== e.pointerId ||
+          Math.hypot(e.clientX - click.x, e.clientY - click.y) > 6) return;
       const hitId = pickHitFeature(e.clientX, e.clientY);
-      if (hitId) {
-        onSelectFeatureRef.current(hitId);
-      }
+      if (hitId) onSelectFeatureRef.current(hitId);
     };
 
     const domEl = renderer.domElement;
     domEl.addEventListener('pointerdown', handlePointerDown);
     domEl.addEventListener('pointermove', handlePointerMove);
     domEl.addEventListener('pointerup', handlePointerUp);
+    const clearHover = () => {
+      pendingClick = null;
+      hoveredFeatureIdRef.current = null;
+      domEl.style.cursor = '';
+      requestRender();
+    };
+    domEl.addEventListener('pointerleave', clearHover);
+    domEl.addEventListener('pointercancel', clearHover);
 
     const handleControlStart = () => {
       userDragging = true;
@@ -750,11 +724,10 @@ export function BasilicaCanvas({
     };
     const handleControlEnd = () => {
       userDragging = false;
-      if (!needsContinuousLoop()) requestRender();
+      requestRender();
     };
     const handleControlChange = () => {
-      projectLabels();
-      if (!loopActive) requestRender();
+      if (!updatingControls) requestRender();
     };
 
     controls.addEventListener('start', handleControlStart);
@@ -762,50 +735,48 @@ export function BasilicaCanvas({
     controls.addEventListener('change', handleControlChange);
 
     const handleResize = () => {
-      if (!container || isDisposed) return;
       const w = container.clientWidth || window.innerWidth;
       const h = container.clientHeight || window.innerHeight;
-      camera.aspect = w / h;
-      camera.updateProjectionMatrix();
-      renderer.setSize(w, h);
+      updateProjection(w, h);
       renderer.setPixelRatio(isSoftwareGl ? 1 : Math.min(window.devicePixelRatio, 2));
-      if (!loopActive) {
-        renderer.render(scene, camera);
-      }
-      projectLabels();
+      renderer.setSize(w, h, false);
+      requestRender();
     };
     window.addEventListener('resize', handleResize);
 
     const handleContextLost = (e: Event) => {
       e.preventDefault();
-      loopActive = false;
-      cancelAnimationFrame(frameId);
-      clearTimeout(frameId);
+      contextLost = true;
+      suspendRendering();
     };
     const handleContextRestored = () => {
-      wakeLoop();
+      envTarget.dispose();
+      envTarget = createEnvironment();
+      scene.environment = envTarget.texture;
+      contextLost = false;
+      requestRender();
     };
+    const handleVisibilityChange = () => {
+      if (document.hidden) suspendRendering();
+      else requestRender();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     domEl.addEventListener('webglcontextlost', handleContextLost);
     domEl.addEventListener('webglcontextrestored', handleContextRestored);
 
-    // Synchronous initial frame render so canvas is never empty after mount
-    const mountAtmos = applyAtmosphere(currentTodRef.current);
-    rig.applyLivingScene(0, 0, mountAtmos, weatherModeRef.current, birdsEnabledRef.current);
-    controls.update();
-    renderer.render(scene, camera);
-    projectLabels();
-    wakeLoop();
+    requestRender();
 
     return () => {
       isDisposed = true;
       requestWakeRef.current = null;
-      projectLabelsRef.current = null;
-      cancelAnimationFrame(frameId);
-      clearTimeout(frameId);
+      suspendRendering();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       window.removeEventListener('resize', handleResize);
       domEl.removeEventListener('pointerdown', handlePointerDown);
       domEl.removeEventListener('pointermove', handlePointerMove);
       domEl.removeEventListener('pointerup', handlePointerUp);
+      domEl.removeEventListener('pointerleave', clearHover);
+      domEl.removeEventListener('pointercancel', clearHover);
       controls.removeEventListener('start', handleControlStart);
       controls.removeEventListener('end', handleControlEnd);
       controls.removeEventListener('change', handleControlChange);
@@ -819,6 +790,7 @@ export function BasilicaCanvas({
       rig.dispose();
       materials.dispose();
       envTarget.dispose();
+      sunLight.shadow.dispose();
       renderer.dispose();
       if (domEl.parentNode === container) {
         container.removeChild(domEl);
@@ -867,8 +839,8 @@ export function BasilicaCanvas({
               onClick={() => onSelectFeature(feat.id)}
               data-feature-label={feat.id}
               aria-label={`Inspect ${feat.label}`}
-              style={{ opacity: 0, pointerEvents: 'none' }}
-              className="fixed top-0 left-0 -translate-x-1/2 -translate-y-full pb-2 group select-none transition-opacity duration-150 focus-visible:outline-none"
+              hidden
+              className="fixed top-0 left-0 -translate-x-1/2 -translate-y-full pb-2 pointer-events-auto group select-none transition-opacity duration-150 focus-visible:outline-2 focus-visible:outline-[#e0a458]"
             >
               <span
                 className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md text-[11px] font-medium whitespace-nowrap shadow-lg border transition-colors ${

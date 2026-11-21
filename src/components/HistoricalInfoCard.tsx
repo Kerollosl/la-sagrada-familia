@@ -57,7 +57,7 @@ export function HistoricalInfoCard({
       </div>
 
       {!collapsed && (
-        <div className="p-4 space-y-3.5">
+        <div className="max-h-[min(45dvh,calc(100dvh-10rem))] overflow-y-auto p-4 space-y-3.5 md:max-h-[calc(100dvh-14rem)]">
           <div className="flex items-baseline justify-between gap-3">
             <div
               className="font-display text-4xl font-semibold leading-none tracking-tight text-[#e0a458] font-mono-tabular"

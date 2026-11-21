@@ -24,7 +24,7 @@ export function CloseUpDetailCard({
     <aside
       aria-label={`Close-up detail: ${feature.label}`}
       data-testid="closeup-detail-card"
-      className="fixed top-4 right-4 z-10 w-[356px] max-w-[calc(100vw-2rem)] max-h-[calc(100vh-10.5rem)] overflow-y-auto rounded-xl bg-[#14171c]/94 border border-[#e0a458]/35 text-[#f7f3eb] shadow-2xl"
+      className="fixed top-4 right-4 z-10 w-[356px] max-w-[calc(100vw-2rem)] max-h-[45dvh] md:max-h-[calc(100dvh-10.5rem)] overflow-y-auto rounded-xl bg-[#14171c]/94 border border-[#e0a458]/35 text-[#f7f3eb] shadow-2xl"
     >
       <div className="flex items-start justify-between gap-2 px-4 pt-3 pb-2.5 border-b border-[#fff5e1]/10">
         <div className="min-w-0">

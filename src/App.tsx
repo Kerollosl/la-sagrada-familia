@@ -66,24 +66,17 @@ export default function App() {
   const [selectedFeatureId, setSelectedFeatureId] = useState<string | null>(
     getInitialSelectedFeatureId
   );
-  const [focusMode, setFocusMode] = useState<boolean>(() => {
-    const params = new URLSearchParams(window.location.search);
-    const focus = params.get('focus');
-    return Boolean(focus && focus !== 'false');
-  });
+  const [focusMode, setFocusMode] = useState(() => getInitialSelectedFeatureId() !== null);
   const [labelsVisible, setLabelsVisible] = useState<boolean>(getInitialLabelsVisible);
 
   const [year, setYear] = useState<number>(() => {
     const params = new URLSearchParams(window.location.search);
     const paramYear = Number(params.get('year'));
+    const initialFeature = getFeatureById(getInitialSelectedFeatureId());
     if (!Number.isNaN(paramYear) && paramYear >= MIN_YEAR && paramYear <= MAX_YEAR) {
-      return paramYear;
+      return Math.max(paramYear, initialFeature?.revealYear ?? MIN_YEAR);
     }
-    const initFeat = getFeatureById(getInitialSelectedFeatureId());
-    if (initFeat) {
-      return Math.max(1926, initFeat.revealYear);
-    }
-    return 1926;
+    return Math.max(1926, initialFeature?.revealYear ?? MIN_YEAR);
   });
   const [isPlaying, setIsPlaying] = useState<boolean>(false);
   const [autoOrbit, setAutoOrbit] = useState<boolean>(false);
@@ -98,7 +91,7 @@ export default function App() {
   const [narrationError, setNarrationError] = useState<string | null>(null);
   const [voiceName, setVoiceName] = useState<GeminiVoiceName>('Charon');
 
-  const [infoCollapsed, setInfoCollapsed] = useState<boolean>(false);
+  const [infoCollapsed, setInfoCollapsed] = useState(() => window.matchMedia('(max-width: 767px)').matches);
   const [dockCollapsed, setDockCollapsed] = useState<boolean>(false);
   const [cameraHint, setCameraHint] = useState<CameraTargetHint | null>(() => {
     const initFeat = getFeatureById(getInitialSelectedFeatureId());
@@ -163,12 +156,9 @@ export default function App() {
 
   const handleResetView = useCallback(() => {
     setSelectedFeatureId(null);
-    setCameraHint({
-      azimuthDeg: 42,
-      elevationDeg: 16,
-      distance: 106,
-      nonce: Date.now(),
-    });
+    setFocusMode(false);
+    setAutoOrbit(false);
+    setCameraHint({ nonce: Date.now() });
   }, []);
 
   const handleSelectFeature = useCallback(
@@ -193,59 +183,30 @@ export default function App() {
   );
 
   const handleToggleFocusMode = useCallback(() => {
-    setFocusMode((prev) => {
-      const next = !prev;
-      if (next) {
-        setLabelsVisible(true);
-        if (!selectedFeatureId) {
-          const visible = getVisibleFeaturesForYear(year);
-          const pick = visible[0] ?? ARCHITECTURAL_FEATURES[0];
-          setIsPlaying(false);
-          setAutoOrbit(false);
-          setSelectedFeatureId(pick.id);
-          if (year < pick.revealYear) setYear(pick.revealYear);
-          setCameraHint({
-            position: pick.cameraPosition,
-            target: pick.cameraTarget,
-            nonce: Date.now(),
-          });
-        }
-      } else {
-        setSelectedFeatureId(null);
-        setCameraHint({
-          azimuthDeg: 42,
-          elevationDeg: 16,
-          distance: 106,
-          nonce: Date.now(),
-        });
-      }
-      return next;
-    });
-  }, [selectedFeatureId, year]);
+    if (focusMode) {
+      handleResetView();
+      return;
+    }
 
-  const handleCloseDetailCard = useCallback(() => {
-    setSelectedFeatureId(null);
-    setCameraHint({
-      azimuthDeg: 42,
-      elevationDeg: 16,
-      distance: 106,
-      nonce: Date.now(),
-    });
-  }, []);
+    const pick = getVisibleFeaturesForYear(year)[0] ?? ARCHITECTURAL_FEATURES[0];
+    handleSelectFeature(pick.id);
+  }, [focusMode, handleResetView, handleSelectFeature, year]);
 
   const handleTogglePlay = useCallback(() => {
-    setIsPlaying((prev) => {
-      const next = !prev;
-      if (next) {
-        const startY = year >= MAX_YEAR - 0.1 ? MIN_YEAR : year;
-        if (year >= MAX_YEAR - 0.1) setYear(MIN_YEAR);
-        void speakerRef.current?.speakForYear(startY, true);
-      } else {
-        speakerRef.current?.stop();
-      }
-      return next;
-    });
-  }, [year]);
+    if (isPlaying) {
+      setIsPlaying(false);
+      speakerRef.current?.stop();
+      return;
+    }
+
+    const restart = year >= MAX_YEAR - 0.1;
+    if (restart) {
+      setYear(MIN_YEAR);
+      if (selectedFeatureId) handleResetView();
+    }
+    setIsPlaying(true);
+    void speakerRef.current?.speakForYear(restart ? MIN_YEAR : year, true);
+  }, [handleResetView, isPlaying, selectedFeatureId, year]);
 
   const handleToggleNarration = useCallback(() => {
     setNarrationEnabled((prev) => {
@@ -283,11 +244,12 @@ export default function App() {
     (nextYear: number) => {
       setIsPlaying(false);
       setYear(nextYear);
+      if (selectedFeature && nextYear < selectedFeature.revealYear) handleResetView();
       if (narrationEnabled) {
         void speakerRef.current?.speakForYear(nextYear, false);
       }
     },
-    [narrationEnabled]
+    [handleResetView, narrationEnabled, selectedFeature]
   );
 
   const handleSelectMilestone = useCallback(
@@ -296,6 +258,8 @@ export default function App() {
       if (!found) return;
       setIsPlaying(false);
       setSelectedFeatureId(null);
+      setFocusMode(false);
+      setAutoOrbit(false);
       setYear(found.year);
       if (narrationEnabled) {
         void speakerRef.current?.speakForYear(found.year, true);
@@ -312,11 +276,12 @@ export default function App() {
       const targetYear = Math.min(MAX_YEAR, endYear);
       setIsPlaying(false);
       setYear(targetYear);
+      if (selectedFeature && targetYear < selectedFeature.revealYear) handleResetView();
       if (narrationEnabled) {
         void speakerRef.current?.speakForYear(targetYear, true);
       }
     },
-    [narrationEnabled]
+    [handleResetView, narrationEnabled, selectedFeature]
   );
 
   const handleDownloadStandalone = useCallback(() => {
@@ -331,14 +296,20 @@ export default function App() {
   // Keyboard shortcuts: Space (Play), H (Hide HUD), R (Reset), N (Narrate), T (Time), F (Focus), L (Labels), Esc (Close detail)
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement | null;
+      if (e.defaultPrevented || e.ctrlKey || e.metaKey || e.altKey || e.repeat) return;
+      const target = e.target instanceof HTMLElement ? e.target : null;
+      if (e.key === 'Escape' && selectedFeatureId) {
+        handleResetView();
+        return;
+      }
       if (
         target &&
-        (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT')
+        (target.isContentEditable || target.closest('input, textarea, select'))
       ) {
         return;
       }
       if (e.code === 'Space') {
+        if (target?.closest('button, a[href]')) return;
         e.preventDefault();
         handleTogglePlay();
       } else if (e.key === 'h' || e.key === 'H') {
@@ -351,8 +322,6 @@ export default function App() {
         handleToggleFocusMode();
       } else if (e.key === 'l' || e.key === 'L') {
         setLabelsVisible((v) => !v);
-      } else if (e.key === 'Escape' && selectedFeatureId) {
-        handleCloseDetailCard();
       } else if (e.key === 't' || e.key === 'T') {
         setCycleTimeOfDay(false);
         setTimeOfDay((curr) => {
@@ -369,13 +338,12 @@ export default function App() {
     handleResetView,
     handleToggleNarration,
     handleToggleFocusMode,
-    handleCloseDetailCard,
     selectedFeatureId,
   ]);
 
   return (
     <main
-      className="relative w-screen h-screen overflow-hidden"
+      className="relative w-full h-dvh overflow-hidden"
       data-year={Math.round(year)}
       data-playing={isPlaying ? 'true' : 'false'}
       data-autoorbit={autoOrbit ? 'true' : 'false'}
@@ -405,19 +373,21 @@ export default function App() {
         onSelectFeature={handleSelectFeature}
       />
 
-      <HistoricalInfoCard
-        year={year}
-        progress={progress}
-        collapsed={infoCollapsed}
-        onToggleCollapse={() => setInfoCollapsed((c) => !c)}
-        onJumpToPhase={handleJumpToPhase}
-      />
+      <div className={selectedFeature ? 'hidden md:block' : undefined}>
+        <HistoricalInfoCard
+          year={year}
+          progress={progress}
+          collapsed={infoCollapsed}
+          onToggleCollapse={() => setInfoCollapsed((c) => !c)}
+          onJumpToPhase={handleJumpToPhase}
+        />
+      </div>
 
       {selectedFeature && (
         <CloseUpDetailCard
           feature={selectedFeature}
           onSelectFeature={handleSelectFeature}
-          onClose={handleCloseDetailCard}
+          onClose={handleResetView}
         />
       )}
 

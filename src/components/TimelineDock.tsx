@@ -110,7 +110,7 @@ export function TimelineDock({
   const activePreset = resolveTimeOfDayPreset(timeOfDay);
 
   return (
-    <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-10 w-[min(990px,95vw)] flex flex-col items-center pointer-events-none">
+    <div className="fixed bottom-3 left-1/2 -translate-x-1/2 z-10 w-[min(990px,calc(100%-1.25rem))] flex flex-col items-center pointer-events-none">
       {narrationEnabled && (narrationCaption || narrationError) && (
         <div
           role="status"
@@ -160,7 +160,7 @@ export function TimelineDock({
       {!collapsed && (
         <section
           aria-label="Timeline playback and camera controls"
-          className="pointer-events-auto w-full rounded-xl bg-[#14171c]/92 border border-[#fff5e1]/15 text-[#f7f3eb] shadow-2xl px-3.5 py-2.5 space-y-2"
+          className="pointer-events-auto w-full max-h-[50dvh] overflow-y-auto rounded-xl bg-[#14171c]/92 border border-[#fff5e1]/15 text-[#f7f3eb] shadow-2xl px-3 py-2.5 space-y-2 sm:px-3.5"
         >
           {/* Primary Row: Play/Pause, Scrubber, Year Readout, Narration & Camera Controls */}
           <div className="flex flex-wrap md:flex-nowrap items-center gap-2">
@@ -208,7 +208,7 @@ export function TimelineDock({
               </span>
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+            <div className="flex min-w-0 flex-wrap items-center gap-1.5">
               <button
                 type="button"
                 onClick={onToggleFocusMode}
@@ -263,6 +263,7 @@ export function TimelineDock({
               <button
                 type="button"
                 onClick={onToggleAutoOrbit}
+                aria-label="Toggle automatic camera orbit"
                 aria-pressed={autoOrbit}
                 className={`inline-flex items-center gap-1.5 min-h-[36px] px-2.5 rounded-lg text-xs font-medium border transition-colors whitespace-nowrap shrink-0 focus-visible:outline-2 focus-visible:outline-[#e0a458] ${
                   autoOrbit
@@ -300,8 +301,8 @@ export function TimelineDock({
 
           {/* Time of Day & Google AI Voice Strip */}
           <div className="flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-[#fff5e1]/10">
-            <div className="flex items-center gap-1.5" role="group" aria-label="Time of Day lighting">
-              <span className="text-[11px] font-medium text-[#a79f91] mr-1 whitespace-nowrap">
+            <div className="flex flex-wrap items-center gap-1.5" role="group" aria-label="Time of Day lighting">
+              <span className="hidden text-[11px] font-medium text-[#a79f91] mr-1 whitespace-nowrap sm:inline">
                 Time of Day
               </span>
               <button
@@ -361,7 +362,7 @@ export function TimelineDock({
               </button>
             </div>
 
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
               <div className="flex items-center gap-1.5">
                 <CloudRain className="w-3.5 h-3.5 text-[#a79f91]" />
                 <label htmlFor="weather-mode-select" className="sr-only">
