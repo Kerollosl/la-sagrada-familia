@@ -1,0 +1,1563 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>La Sagrada Família — 3D Construction Timeline (1882–2026+)</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=JetBrains+Mono:wght@400;500&family=Plus+Jakarta+Sans:wght@400;500;600&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --bg-hud: rgba(20, 23, 28, 0.92);
+      --border-hud: rgba(255, 245, 225, 0.15);
+      --ink: #f7f3eb;
+      --ink-muted: #cfc7b8;
+      --ink-dim: #a79f91;
+      --accent: #e0a458;
+      --accent-hover: #eab46e;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    html, body {
+      width: 100%; height: 100%; overflow: hidden;
+      background: #e4d4c0; color: var(--ink);
+      font-family: "Plus Jakarta Sans", system-ui, -apple-system, sans-serif;
+      user-select: none;
+    }
+    #canvas-host {
+      position: fixed; inset: 0; width: 100%; height: 100%;
+      cursor: grab;
+    }
+    #canvas-host:active { cursor: grabbing; }
+
+    .info-card {
+      position: fixed; top: 16px; left: 16px; z-index: 10;
+      width: 332px; max-width: calc(100vw - 32px);
+      border-radius: 12px; background: var(--bg-hud);
+      border: 1px solid var(--border-hud);
+      box-shadow: 0 20px 45px rgba(0,0,0,0.35);
+    }
+    .info-header {
+      display: flex; align-items: center; justify-content: space-between; gap: 12px;
+      padding: 12px 16px; border-bottom: 1px solid rgba(255,245,225,0.1);
+    }
+    .info-title {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 20px; font-weight: 600; line-height: 1.15; color: var(--ink);
+    }
+    .info-meta {
+      display: flex; align-items: center; gap: 6px;
+      font-size: 11px; color: var(--ink-muted); margin-top: 2px;
+    }
+    .mono { font-family: "JetBrains Mono", monospace; font-variant-numeric: tabular-nums; }
+    .icon-btn {
+      width: 34px; height: 34px; border-radius: 8px; border: none;
+      background: transparent; color: var(--ink-muted); cursor: pointer;
+      display: inline-flex; align-items: center; justify-content: center;
+      font-size: 14px; transition: background 0.15s, color 0.15s;
+    }
+    .icon-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .info-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 12px; }
+    .info-body.hidden { display: none; }
+    .year-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+    .year-big {
+      font-family: "Cormorant Garamond", Georgia, serif;
+      font-size: 38px; font-weight: 600; line-height: 1; color: var(--accent);
+      font-variant-numeric: tabular-nums;
+    }
+    .architect-box { text-align: right; }
+    .architect-label { font-size: 11px; color: var(--ink-dim); }
+    .architect-name { font-size: 13px; font-weight: 500; color: var(--ink); }
+    .era-title { font-size: 14px; font-weight: 600; color: var(--ink); margin-bottom: 4px; }
+    .era-summary { font-size: 12.5px; line-height: 1.5; color: #d4cdbf; }
+    .phases-list {
+      padding-top: 8px; border-top: 1px solid rgba(255,245,225,0.1);
+      display: flex; flex-direction: column; gap: 4px;
+    }
+    .phase-btn {
+      width: 100%; display: flex; align-items: center; justify-content: space-between; gap: 8px;
+      padding: 6px 8px; border-radius: 6px; border: none; background: transparent;
+      color: var(--ink-muted); font-size: 12px; cursor: pointer; text-align: left;
+      transition: background 0.15s, color 0.15s;
+    }
+    .phase-btn:hover { background: rgba(255,255,255,0.06); color: #fff; }
+    .phase-btn.active { background: rgba(255,255,255,0.1); color: #fff; }
+    .phase-left { display: flex; align-items: center; gap: 8px; min-width: 0; }
+    .swatch { width: 10px; height: 10px; border-radius: 2px; border: 1px solid rgba(255,255,255,0.2); flex-shrink: 0; }
+
+    .dock-wrap {
+      position: fixed; bottom: 12px; left: 50%; transform: translateX(-50%); z-index: 10;
+      width: min(940px, 95vw); display: flex; flex-direction: column; align-items: center;
+      pointer-events: none;
+    }
+    .narration-caption {
+      pointer-events: auto; margin-bottom: 8px; max-width: min(740px, 92vw);
+      padding: 8px 16px; border-radius: 8px; background: var(--bg-hud);
+      border: 1px solid rgba(224,164,88,0.35); color: var(--ink);
+      font-size: 12.5px; line-height: 1.4; text-align: center;
+      box-shadow: 0 10px 24px rgba(0,0,0,0.32);
+    }
+    .narration-caption.hidden { display: none; }
+    .dock-toggle {
+      pointer-events: auto; margin-bottom: 4px; padding: 4px 12px;
+      border-radius: 8px 8px 6px 6px; background: var(--bg-hud);
+      border: 1px solid var(--border-hud); color: var(--ink-muted);
+      font-size: 11px; font-weight: 500; cursor: pointer;
+    }
+    .dock-toggle:hover { color: #fff; }
+    .dock {
+      pointer-events: auto; width: 100%; border-radius: 12px;
+      background: var(--bg-hud); border: 1px solid var(--border-hud);
+      box-shadow: 0 20px 45px rgba(0,0,0,0.4);
+      padding: 10px 14px; display: flex; flex-direction: column; gap: 8px;
+    }
+    .dock.hidden { display: none; }
+    .dock-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+    .play-btn {
+      min-height: 38px; padding: 0 16px; border-radius: 8px; border: none;
+      background: var(--accent); color: #14171c; font-weight: 600; font-size: 12px;
+      cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    }
+    .play-btn:hover { background: var(--accent-hover); }
+    .slider-wrap { flex: 1; min-width: 150px; display: flex; align-items: center; gap: 10px; }
+    input[type="range"] {
+      -webkit-appearance: none; appearance: none; width: 100%; height: 24px;
+      background-color: transparent; cursor: pointer;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 6px; border-radius: 3px;
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none; appearance: none; width: 16px; height: 16px;
+      border-radius: 50%; background: #f7f3eb; border: 2.5px solid var(--accent);
+      margin-top: -5px; box-shadow: 0 2px 6px rgba(0,0,0,0.45);
+    }
+    .ctrl-btn {
+      min-height: 38px; padding: 0 12px; border-radius: 8px;
+      background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12);
+      color: var(--ink-muted); font-size: 12px; font-weight: 500;
+      cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    }
+    .ctrl-btn:hover { background: rgba(255,255,255,0.12); color: #fff; }
+    .ctrl-btn.active {
+      background: rgba(224,164,88,0.2); border-color: rgba(224,164,88,0.6); color: #f6cf92;
+    }
+    .milestones-row {
+      display: flex; align-items: center; gap: 6px; overflow-x: auto;
+      padding-top: 6px; border-top: 1px solid rgba(255,245,225,0.1);
+    }
+    .era-btn {
+      flex: 1; min-width: fit-content; padding: 6px 10px; border-radius: 8px;
+      border: 1px solid transparent; background: rgba(255,255,255,0.05);
+      color: var(--ink-muted); font-size: 12px; font-weight: 500;
+      cursor: pointer; white-space: nowrap; flex-shrink: 0;
+    }
+    .era-btn:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .era-btn.active {
+      background: rgba(224,164,88,0.2); border-color: rgba(224,164,88,0.5); color: #f6cf92;
+    }
+    .closeup-card {
+      position: fixed; top: 16px; right: 16px; z-index: 10;
+      width: 356px; max-width: calc(100vw - 32px); max-height: calc(100vh - 168px); overflow-y: auto;
+      background: var(--bg-hud); border: 1px solid rgba(224,164,88,0.35);
+      border-radius: 12px; box-shadow: 0 20px 45px rgba(0,0,0,0.45);
+    }
+    .closeup-card.hidden { display: none; }
+    .closeup-trivia { padding-top: 8px; border-top: 1px solid rgba(255,245,225,0.1); list-style: none; display: flex; flex-direction: column; gap: 6px; }
+    .closeup-trivia li { display: flex; gap: 8px; font-size: 11.5px; line-height: 1.38; color: #d4cdbf; }
+    .labels-layer { position: fixed; inset: 0; pointer-events: none; overflow: hidden; z-index: 5; }
+    .pin-3d {
+      position: fixed; top: 0; left: 0; transform: translate3d(-999px, -999px, 0);
+      margin-left: 0; margin-top: 0; background: none; border: none; padding: 0 0 8px 0;
+      cursor: pointer; pointer-events: none; opacity: 0; transition: opacity 0.15s;
+      display: flex; flex-direction: column; align-items: center;
+      margin: -34px 0 0 -55px;
+    }
+    .pin-3d-tag {
+      display: inline-flex; align-items: center; gap: 6px; padding: 4px 9px;
+      border-radius: 6px; background: rgba(20,23,28,0.9); color: #f7f3eb;
+      border: 1px solid rgba(255,245,225,0.22); font-size: 11px; font-weight: 500;
+      white-space: nowrap; box-shadow: 0 6px 16px rgba(0,0,0,0.35);
+    }
+    .pin-3d.active .pin-3d-tag { background: #e0a458; color: #14171c; border-color: #fff5e1; }
+    .pin-3d-dot { width: 6px; height: 6px; transform: rotate(45deg); background: #e0a458; }
+    .pin-3d.active .pin-3d-dot { background: #14171c; }
+    .pin-3d-stem { width: 1px; height: 9px; background: rgba(255,245,225,0.45); }
+  </style>
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.170.0/build/three.module.js",
+      "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.170.0/examples/jsm/"
+    }
+  }
+  </script>
+</head>
+<body>
+  <div id="canvas-host" aria-label="Interactive 3D architectural visualization of La Sagrada Família"></div>
+  <div id="labels-layer" class="labels-layer" aria-label="Annotated 3D architectural labels"></div>
+
+  <aside class="info-card" aria-label="Historical construction details">
+    <div class="info-header">
+      <div>
+        <h1 class="info-title">La Sagrada Família</h1>
+        <div class="info-meta">
+          <span>Barcelona</span><span aria-hidden="true">·</span>
+          <span>1882–2026+</span><span aria-hidden="true">·</span>
+          <span id="pct-built" class="mono" style="color:var(--accent)">0% Built</span>
+        </div>
+      </div>
+      <button id="info-collapse-btn" class="icon-btn" type="button" aria-label="Toggle info card">▾</button>
+    </div>
+    <div id="info-body" class="info-body">
+      <div class="year-row">
+        <div id="year-display" class="year-big">1926</div>
+        <div class="architect-box">
+          <div class="architect-label">Active Architect</div>
+          <div id="architect-name" class="architect-name">Antoni Gaudí</div>
+        </div>
+      </div>
+      <div>
+        <h2 id="era-title" class="era-title"></h2>
+        <p id="era-summary" class="era-summary"></p>
+      </div>
+      <div class="phases-list" id="phases-list"></div>
+    </div>
+  </aside>
+
+  <aside id="closeup-card" class="closeup-card hidden" aria-label="Close-up architectural detail">
+    <div class="info-header">
+      <div>
+        <div class="info-meta"><span style="color:var(--accent)">Close-up Detail</span><span aria-hidden="true">·</span><span id="cu-era"></span></div>
+        <h2 id="cu-title" class="info-title" style="font-size:20px;margin-top:2px"></h2>
+      </div>
+      <div style="display:flex;gap:4px">
+        <button id="cu-prev-btn" class="icon-btn" type="button" aria-label="Previous landmark">‹</button>
+        <button id="cu-next-btn" class="icon-btn" type="button" aria-label="Next landmark">›</button>
+        <button id="cu-close-btn" class="icon-btn" type="button" aria-label="Close close-up detail">✕</button>
+      </div>
+    </div>
+    <div class="info-body">
+      <div style="font-size:11.5px;color:var(--ink-dim)">Lead Architect <strong id="cu-arch" style="color:var(--ink);font-weight:500"></strong></div>
+      <div id="cu-dims" class="mono" style="font-size:11.5px;color:var(--ink-muted)"></div>
+      <p id="cu-summary" class="era-summary"></p>
+      <ol id="cu-trivia" class="closeup-trivia"></ol>
+    </div>
+  </aside>
+
+  <div class="dock-wrap">
+    <div id="narration-caption" class="narration-caption hidden" role="status" aria-live="polite" data-testid="narration-caption"></div>
+    <button id="dock-toggle-btn" class="dock-toggle" type="button">▾ Hide Controls</button>
+    <section id="dock-panel" class="dock" aria-label="Timeline playback and camera controls">
+      <div class="dock-row">
+        <button id="play-btn" class="play-btn" type="button">Play</button>
+        <div class="slider-wrap">
+          <input id="year-slider" type="range" min="1882" max="2026" step="0.25" value="1926" aria-label="Construction year" />
+          <span id="slider-year" class="mono" style="font-size:13px;width:46px;text-align:right">1926</span>
+        </div>
+        <button id="focus-btn" class="ctrl-btn" type="button" aria-pressed="false">Focus</button>
+        <button id="labels-btn" class="ctrl-btn active" type="button" aria-pressed="true">Labels</button>
+        <button id="narrate-btn" class="ctrl-btn" type="button" aria-pressed="false" aria-label="Enable voice narration">Narrate</button>
+        <button id="orbit-btn" class="ctrl-btn" type="button" aria-pressed="false">Auto-Orbit</button>
+        <button id="reset-btn" class="ctrl-btn" type="button">Reset</button>
+      </div>
+      <div class="milestones-row" id="tod-row" style="padding-top:6px;flex-wrap:wrap">
+        <span style="font-size:11px;color:var(--ink-dim);margin-right:4px;white-space:nowrap">Time of Day</span>
+        <button class="era-btn" type="button" data-tod="day">Daylight</button>
+        <button class="era-btn active" type="button" data-tod="dusk">Golden Hour</button>
+        <button class="era-btn" type="button" data-tod="night">Night</button>
+        <button id="tod-cycle-btn" class="ctrl-btn" type="button" style="min-height:30px;padding:0 10px" aria-pressed="false">Cycle</button>
+        <select id="weather-select" class="ctrl-btn" style="min-height:30px;padding:0 8px;background:#1f242c" aria-label="Atmospheric weather effect">
+          <option value="auto">Weather: Auto</option>
+          <option value="rain">Light Rain</option>
+          <option value="fog">Drifting Mist</option>
+          <option value="clear">Clear Sky</option>
+        </select>
+        <button id="birds-btn" class="ctrl-btn active" type="button" style="min-height:30px;padding:0 10px" aria-pressed="true">Birds</button>
+      </div>
+      <div class="milestones-row" id="milestones-row"></div>
+    </section>
+  </div>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+    import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+    const MIN_YEAR = 1882, MAX_YEAR = 2026;
+    const PHASES = [
+      { id: 'phase1', label: 'Crypt, Apse & Nativity', endYear: 1929, color: '#d4b483' },
+      { id: 'phase2', label: 'Passion Facade', endYear: 1976, color: '#d8d2c7' },
+      { id: 'phase3', label: 'Central Nave & Vaults', endYear: 2010, color: '#e3c79c' },
+      { id: 'phase4', label: 'Central Towers & Glory', endYear: 2026, color: '#f1d693' },
+    ];
+    const MILESTONES = [
+      { id: 's1882', year: 1882, label: '1882 Start', cam: [140, 22, 72] },
+      { id: 'g1926', year: 1926, label: "1926 Gaudí's Death", cam: [62, 18, 74] },
+      { id: 'p1976', year: 1976, label: '1976 Passion Towers', cam: [-66, 19, 76] },
+      { id: 'c2010', year: 2010, label: '2010 Consecration', cam: [38, 22, 78] },
+      { id: 'f2026', year: 2026, label: '2026 Completion', cam: [42, 15, 108] },
+    ];
+    const SEGMENTS = [
+      {
+        id: '1882–1883',
+        from: 1882, to: 1884, title: 'Neo-Gothic Crypt Foundations', architect: 'Francisco de Paula del Villar', phase: 'phase1',
+        summary: 'Construction began in March 1882 under diocesan architect Francisco de Paula del Villar with a Neo-Gothic crypt beneath the apse. Within a year, thirty-one-year-old Antoni Gaudí assumed leadership and completely transformed the basilica’s structural vision.',
+        narration: '1882. Work begins under Francisco de Paula del Villar with a Neo-Gothic crypt, before young Antoni Gaudí takes over and transforms the entire vision.'
+      },
+      {
+        id: '1884–1906',
+        from: 1884, to: 1906, title: 'Crypt Completion & Radiating Apse', architect: 'Antoni Gaudí', phase: 'phase1',
+        summary: 'Gaudí vaulted the crypt and raised the polygonal Neo-Gothic apse walls with seven radiating chapels and towering outer pinnacles. During this era he developed hanging chain models to calculate catenary equilibrium.',
+        narration: '1884 to 1906. Gaudí completes the crypt and raises the seven radiating apse chapels, using hanging chain models to shape every stone arch.'
+      },
+      {
+        id: '1906–1926',
+        from: 1906, to: 1926.9, title: 'Nativity Facade & Bell Towers', architect: 'Antoni Gaudí', phase: 'phase1',
+        summary: 'Focusing all energy on the eastern Nativity Facade, Gaudí sculpted three richly detailed portals beneath the Cypress Tree of Life and raised its four parabolic bell towers. By his death in June 1926, the first tower stood complete and the remaining three were well underway.',
+        narration: '1906 to 1926. Gaudí sculpts the Nativity Facade and its first parabolic bell towers, leaving plaster models behind upon his passing in 1926.'
+      },
+      {
+        id: '1926–1951',
+        from: 1926.9, to: 1952, title: 'Completion of Nativity & Wartime Pause', architect: 'Domènec Sugrañes · Francesc Quintana', phase: 'phase1',
+        summary: 'Domènec Sugrañes finished the remaining three Nativity bell towers by 1930 before the Spanish Civil War halted work and damaged Gaudí’s models. During the 1940s, architects pieced back the shattered plaster prototypes to resume work.',
+        narration: '1926 to 1951. Gaudí’s disciples finish the Nativity spires by 1930, then carefully reconstruct his shattered workshop models after the war.'
+      },
+      {
+        id: '1952–1976',
+        from: 1952, to: 1976.9, title: 'Passion Facade & Bone-Like Pillars', architect: 'Francesc Quintana, Isidre Puig Boada & Lluís Bonet', phase: 'phase2',
+        summary: 'Work opened on the western transept with the stark, austere Passion Facade, anchored by six inclined bone-like buttress columns supporting a severe cornice. By 1976 all four angular geometric bell towers rose to 112 meters.',
+        narration: '1952 to 1976. Across the western transept, the stark Passion Facade rises with six inclined bone-like pillars and four angular bell towers.'
+      },
+      {
+        id: '1978–1995',
+        from: 1976.9, to: 1995, title: 'Nave Walls & Forest Columns Begin', architect: 'Jordi Bonet i Armengol', phase: 'phase3',
+        summary: 'Builders shifted to the vast central nave, raising outer clerestory walls alongside double-twisted tree columns. Early CAD modeling translated Gaudí’s complex ruled hyperboloid geometries into stone formwork.',
+        narration: '1978 to 1995. Guided by early computer modeling, builders raise the nave walls and plant a forest of double-twisted stone columns inside.'
+      },
+      {
+        id: '1995–2010',
+        from: 1995, to: 2010.5, title: 'Hyperboloid Vaults & Consecration', architect: 'Jordi Bonet i Armengol', phase: 'phase3',
+        summary: 'Branching stone canopies interlocked into luminous hyperboloid vaults 45 meters above the nave floor, enclosing the roof and jewel-toned stained glass. In November 2010, Pope Benedict XVI consecrated the church as a Minor Basilica.',
+        narration: '1995 to 2010. Branching stone canopies lock into luminous hyperboloid vaults, enclosing the stained-glass nave for its 2010 consecration.'
+      },
+      {
+        id: '2010–2021',
+        from: 2010.5, to: 2021.9, title: 'Evangelist & Virgin Mary Towers', architect: 'Jordi Faulí i Oller', phase: 'phase4',
+        summary: 'Using prefabricated post-tensioned stone panels, Jordi Faulí’s team accelerated construction of the six central towers. In December 2021, the 138-meter Tower of the Virgin Mary was crowned with an illuminated twelve-pointed star.',
+        narration: '2010 to 2021. Post-tensioned stone panels accelerate the central cluster, crowning the Tower of the Virgin Mary with a glowing twelve-pointed star.'
+      },
+      {
+        id: '2022–2026+',
+        from: 2021.9, to: 2027, title: 'Tower of Jesus Christ & Glory Facade', architect: 'Jordi Faulí i Oller', phase: 'phase4',
+        summary: 'With winged tetramorph sculptures crowning the four Evangelist towers, the central Tower of Jesus Christ ascended to 172.5 meters topped by its four-armed glazed cross. Marking the 2026 centenary of Gaudí’s passing, work advances on the monumental Glory Facade.',
+        narration: '2022 to 2026 and beyond. The four winged Evangelist towers and the 172-meter Tower of Jesus Christ crown the skyline as work turns toward the Glory Facade.'
+      },
+    ];
+
+    const clamp01 = (v) => Math.max(0, Math.min(1, v));
+    const smooth01 = (t) => { const x = clamp01(t); return x * x * (3 - 2 * x); };
+    const prog = (y, a, b) => smooth01((y - a) / (b - a));
+    function getProgress(y) {
+      const crypt = prog(y, 1882, 1891), apse = prog(y, 1888, 1904);
+      const nativityBody = prog(y, 1898, 1918), nativityTowers = prog(y, 1912, 1929);
+      const phase1 = prog(y, 1882, 1929);
+      const passionBody = prog(y, 1952, 1966), passionTowers = prog(y, 1962, 1976);
+      const phase2 = prog(y, 1952, 1976);
+      const naveWalls = prog(y, 1978, 1998), naveVaults = prog(y, 1992, 2009);
+      const stainedGlassGlow = prog(y, 2004, 2011), phase3 = prog(y, 1978, 2010);
+      const virginMaryTower = prog(y, 2014, 2021.8), evangelistTowers = prog(y, 2015, 2023.8);
+      const jesusTower = prog(y, 2016, 2026), gloryFacade = prog(y, 2018, 2026);
+      const phase4 = prog(y, 2011, 2026);
+      const pct = Math.round((phase1 * 0.25 + phase2 * 0.2 + phase3 * 0.27 + phase4 * 0.28) * 100);
+      return { phase1, phase2, phase3, phase4, crypt, apse, nativityBody, nativityTowers, passionBody, passionTowers, naveWalls, naveVaults, stainedGlassGlow, virginMaryTower, evangelistTowers, jesusTower, gloryFacade, pct };
+    }
+
+    // WebGL Setup
+    const host = document.getElementById('canvas-host');
+    const renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.outputColorSpace = THREE.SRGBColorSpace;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 0.92;
+    renderer.localClippingEnabled = true;
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    host.appendChild(renderer.domElement);
+
+    const scene = new THREE.Scene();
+    const horizonHex = 0xe4d4c0;
+    const fog = new THREE.FogExp2(horizonHex, 0.0042);
+    scene.background = new THREE.Color(horizonHex);
+    scene.fog = fog;
+
+    // Sky Dome Shader
+    const skyGeo = new THREE.SphereGeometry(260, 24, 16);
+    const skyMat = new THREE.ShaderMaterial({
+      side: THREE.BackSide,
+      depthWrite: false,
+      uniforms: {
+        topColor: { value: new THREE.Color(0x8bb4de) },
+        midColor: { value: new THREE.Color(0xcfdce8) },
+        horizonColor: { value: new THREE.Color(0xecd6bc) },
+      },
+      vertexShader: `
+        varying vec3 vWorldPosition;
+        void main() {
+          vec4 worldPos = modelMatrix * vec4(position, 1.0);
+          vWorldPosition = worldPos.xyz;
+          gl_Position = projectionMatrix * viewMatrix * worldPos;
+        }
+      `,
+      fragmentShader: `
+        uniform vec3 topColor;
+        uniform vec3 midColor;
+        uniform vec3 horizonColor;
+        varying vec3 vWorldPosition;
+        void main() {
+          float h = normalize(vWorldPosition).y;
+          vec3 col = mix(horizonColor, midColor, smoothstep(0.0, 0.24, max(h, 0.0)));
+          col = mix(col, topColor, smoothstep(0.22, 0.78, max(h, 0.0)));
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `,
+    });
+    scene.add(new THREE.Mesh(skyGeo, skyMat));
+
+    const starPos = new Float32Array(240 * 3);
+    for (let i = 0; i < 240; i++) {
+      const h1 = Math.abs(Math.sin(i * 12.9898 + 1.23) * 43758.5453) % 1;
+      const h2 = Math.abs(Math.sin(i * 78.233 + 4.56) * 24634.6345) % 1;
+      const phi = h1 * Math.PI * 2, u = 0.08 + h2 * 0.88, r = 235;
+      const hz = Math.sqrt(Math.max(0, 1 - u * u));
+      starPos[i * 3] = Math.cos(phi) * hz * r; starPos[i * 3 + 1] = u * r; starPos[i * 3 + 2] = Math.sin(phi) * hz * r;
+    }
+    const starGeo = new THREE.BufferGeometry(); starGeo.setAttribute('position', new THREE.BufferAttribute(starPos, 3));
+    const starfieldMat = new THREE.PointsMaterial({ color: 0xeef4ff, size: 1.5, transparent: true, opacity: 0, depthWrite: false, fog: false });
+    const starfield = new THREE.Points(starGeo, starfieldMat);
+    scene.add(starfield);
+
+    const pmrem = new THREE.PMREMGenerator(renderer);
+    scene.environment = pmrem.fromScene(new RoomEnvironment(), 0.04).texture;
+    scene.environmentIntensity = 0.45;
+    pmrem.dispose();
+
+    const camera = new THREE.PerspectiveCamera(44, window.innerWidth / window.innerHeight, 0.5, 500);
+    camera.position.set(68, 35, 74);
+    const controls = new OrbitControls(camera, renderer.domElement);
+    const TARGET = new THREE.Vector3(0, 20.5, 0);
+    controls.target.copy(TARGET);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.06;
+    controls.minDistance = 12;
+    controls.maxDistance = 160;
+    controls.maxPolarAngle = Math.PI * 0.485;
+    controls.minPolarAngle = 0.12;
+    controls.update();
+
+    const sun = new THREE.DirectionalLight(0xffcf94, 2.05);
+    sun.position.set(56, 38, 42);
+    sun.castShadow = true;
+    sun.shadow.mapSize.set(2048, 2048);
+    sun.shadow.camera.left = -34; sun.shadow.camera.right = 34;
+    sun.shadow.camera.top = 48; sun.shadow.camera.bottom = -34;
+    sun.shadow.camera.near = 10; sun.shadow.camera.far = 175;
+    sun.shadow.bias = -0.0005;
+    sun.shadow.normalBias = 0.025;
+    scene.add(sun);
+    const hemi = new THREE.HemisphereLight(0x7caee0, 0x6b5039, 0.72);
+    scene.add(hemi);
+    const rim = new THREE.DirectionalLight(0x9fc2e6, 0.55);
+    rim.position.set(-48, 24, -42);
+    scene.add(rim);
+
+    const maxAniso = renderer.capabilities.getMaxAnisotropy();
+
+    // High-Resolution 1024x1024 Procedural Stone Normal, Displacement, Roughness & Weathering Maps + Shader
+    function makeStonePBRSet(profile) {
+      const sz = 1024, total = sz * sz, TAU = Math.PI * 2;
+      const clampB = (v) => v <= 0 ? 0 : (v >= 255 ? 255 : Math.round(v));
+      const sm = (e0, e1, x) => { const t = Math.max(0, Math.min(1, (x - e0) / (e1 - e0))); return t * t * (3 - 2 * t); };
+      const hash2 = (ix, iy, p, seed) => {
+        const px = ((ix % p) + p) % p, py = ((iy % p) + p) % p;
+        let h = (px * 374761393 + py * 668265263 + seed * 1442695041) | 0;
+        h = Math.imul(h ^ (h >>> 13), 1274126177);
+        return ((h ^ (h >>> 16)) >>> 0) / 4294967295;
+      };
+      const pNoise = (u, v, px, py, seed) => {
+        const fx = u * px, fy = v * py, ix = Math.floor(fx), iy = Math.floor(fy);
+        const tx = fx - ix, ty = fy - iy, sx = tx * tx * (3 - 2 * tx), sy = ty * ty * (3 - 2 * ty);
+        const ix1 = ix + 1, iy1 = iy + 1;
+        let a, b, c, d;
+        if (px === py) {
+          a = hash2(ix, iy, px, seed); b = hash2(ix1, iy, px, seed);
+          c = hash2(ix, iy1, px, seed); d = hash2(ix1, iy1, px, seed);
+        } else {
+          const wx0 = ((ix % px) + px) % px, wx1 = ((ix1 % px) + px) % px;
+          const wy0 = ((iy % py) + py) % py, wy1 = ((iy1 % py) + py) % py;
+          a = hash2(wx0, wy0, 65536, seed); b = hash2(wx1, wy0, 65536, seed);
+          c = hash2(wx0, wy1, 65536, seed); d = hash2(wx1, wy1, 65536, seed);
+        }
+        return (a + (b - a) * sx) + ((c + (d - c) * sx) - (a + (b - a) * sx)) * sy;
+      };
+      const fbm = (u, v, bp, seed) => {
+        let s = 0, amp = 0.5, norm = 0, p = bp;
+        for (let o = 0; o < 4; o++) { s += pNoise(u, v, p, p, seed + o * 79) * amp; norm += amp; amp *= 0.5; p *= 2; }
+        return s / norm;
+      };
+
+      const hArr = new Float32Array(total), mArr = new Float32Array(total), cArr = new Float32Array(total);
+      const rows = profile === 'organic' ? 16 : 12, cols = profile === 'organic' ? 8 : 6;
+      const nStr = profile === 'organic' ? 3.8 : 4.2;
+
+      for (let y = 0; y < sz; y++) {
+        const v = y / sz, rowF = v * rows, rowIdx = Math.floor(rowF), rowLoc = rowF - rowIdx, stag = (rowIdx % 2) * 0.5;
+        for (let x = 0; x < sz; x++) {
+          const u = x / sz, colF = u * cols + stag, colIdx = Math.floor(colF) % cols, colLoc = colF - Math.floor(colF);
+          const bSeed = hash2(colIdx, rowIdx, 256, profile === 'organic' ? 17 : 91);
+          const bRel = (bSeed - 0.5) * 0.14;
+          const bFace = sm(0.01, profile === 'organic' ? 0.055 : 0.04, Math.min(colLoc, 1 - colLoc)) * sm(0.015, profile === 'organic' ? 0.085 : 0.055, Math.min(rowLoc, 1 - rowLoc));
+          const mortar = 1 - bFace;
+          const fM = fbm(u, v, 16, profile === 'organic' ? 101 : 211);
+          const fm = fbm(u, v, 64, profile === 'organic' ? 307 : 409);
+          const rain = pNoise(u, v * 0.25, 48, 12, 503);
+          let rel = 0, ch = 0;
+          if (profile === 'organic') {
+            const flute = Math.sin((u * cols * 4 + fM * 0.65) * TAU) * 0.045;
+            const band = rowIdx % 4 === 1 || rowIdx % 4 === 3;
+            const dx = colLoc - 0.5, dy = rowLoc - 0.5, rad = Math.hypot(dx * 1.15, dy * 1.65), ang = Math.atan2(dy, dx);
+            const ros = band ? Math.max(0, 1 - rad * 2.25) * (0.55 + 0.45 * Math.cos(ang * 6)) * 0.16 : 0;
+            const pitRaw = pNoise(u, v, 128, 128, 613), pit = pitRaw < 0.22 ? -(0.22 - pitRaw) * 0.42 : 0;
+            rel = 0.56 + bRel + (fM - 0.5) * 0.19 + (fm - 0.5) * 0.11 + (rain - 0.5) * 0.08 + flute * bFace + ros * bFace + pit - mortar * 0.34;
+            ch = ros * 2.2 + Math.max(0, flute) * 1.4;
+          } else {
+            const chisel = Math.sin((u * 18 + v * 30 + bSeed * 4) * TAU) * 0.032 + Math.sin((u * 42 - v * 24) * TAU) * 0.018;
+            const slope = (colLoc - 0.5) * ((bSeed > 0.5 ? 1 : -1) * 0.09);
+            const pitRaw = pNoise(u, v, 128, 128, 719), pit = pitRaw < 0.14 ? -(0.14 - pitRaw) * 0.28 : 0;
+            rel = 0.54 + bRel * 0.85 + slope * bFace + chisel * bFace + (fM - 0.5) * 0.14 + (fm - 0.5) * 0.1 + (rain - 0.5) * 0.05 + pit - mortar * 0.3;
+            ch = Math.max(0, slope * 1.5 + chisel * 1.2);
+          }
+          const idx = y * sz + x;
+          hArr[idx] = Math.max(0.02, Math.min(0.98, rel));
+          mArr[idx] = mortar; cArr[idx] = ch;
+        }
+      }
+
+      const aBuf = new Uint8Array(total * 4), nBuf = new Uint8Array(total * 4), dBuf = new Uint8Array(total * 4), rBuf = new Uint8Array(total * 4);
+      const sH = (px, py) => hArr[(((py % sz) + sz) % sz) * sz + (((px % sz) + sz) % sz)];
+      for (let y = 0; y < sz; y++) {
+        for (let x = 0; x < sz; x++) {
+          const idx = y * sz + x, p4 = idx * 4, h = hArr[idx], m = mArr[idx], ch = cArr[idx];
+          const tl = sH(x - 1, y - 1), tc = sH(x, y - 1), tr = sH(x + 1, y - 1);
+          const ml = sH(x - 1, y), mr = sH(x + 1, y);
+          const bl = sH(x - 1, y + 1), bc = sH(x, y + 1), br = sH(x + 1, y + 1);
+          const dX = (tr + 2 * mr + br - (tl + 2 * ml + bl)) * 0.25 * nStr;
+          const dY = (bl + 2 * bc + br - (tl + 2 * tc + tr)) * 0.25 * nStr;
+          const nx = -dX, ny = -dY, nz = 1.0, invL = 1 / Math.hypot(nx, ny, nz);
+          nBuf[p4] = clampB((nx * invL * 0.5 + 0.5) * 255);
+          nBuf[p4 + 1] = clampB((ny * invL * 0.5 + 0.5) * 255);
+          nBuf[p4 + 2] = clampB((nz * invL * 0.5 + 0.5) * 255); nBuf[p4 + 3] = 255;
+
+          const dB = clampB(h * 255); dBuf[p4] = dBuf[p4 + 1] = dBuf[p4 + 2] = dB; dBuf[p4 + 3] = 255;
+          const rB = clampB(Math.max(0.56, Math.min(0.98, 0.86 - (h - 0.5) * 0.34 + m * 0.12 - ch * 0.08)) * 255);
+          rBuf[p4] = rBuf[p4 + 1] = rBuf[p4 + 2] = rB; rBuf[p4 + 3] = 255;
+
+          const tone = (0.87 + (h - 0.5) * 0.24 + ch * 0.09) * (1 - m * 0.34);
+          const pat = profile === 'organic' ? (1 - m) * 0.015 : 0;
+          aBuf[p4] = clampB((tone + pat) * 255);
+          aBuf[p4 + 1] = clampB((tone - 0.008) * 255);
+          aBuf[p4 + 2] = clampB((tone - 0.028 - pat * 0.5) * 255); aBuf[p4 + 3] = 255;
+        }
+      }
+
+      const mkTex = (buf, isCol) => {
+        const t = new THREE.DataTexture(buf, sz, sz, THREE.RGBAFormat);
+        t.colorSpace = isCol ? THREE.SRGBColorSpace : THREE.NoColorSpace;
+        t.wrapS = t.wrapT = THREE.RepeatWrapping; t.repeat.set(3, 5);
+        t.magFilter = THREE.LinearFilter; t.minFilter = THREE.LinearMipmapLinearFilter;
+        t.generateMipmaps = true; t.anisotropy = maxAniso; t.needsUpdate = true;
+        return t;
+      };
+      return { aTex: mkTex(aBuf, true), nTex: mkTex(nBuf, false), dTex: mkTex(dBuf, false), rTex: mkTex(rBuf, false) };
+    }
+
+    function applyStoneShader(mat, profile) {
+      const gs = profile === 'organic' ? '9.5' : '11.5';
+      const ps = profile === 'organic' ? '0.075' : '0.045';
+      const ma = profile === 'organic' ? '0.085' : '0.105';
+      mat.customProgramCacheKey = () => 'sagrada-stone-' + profile;
+      mat.onBeforeCompile = (shader) => {
+        shader.vertexShader = shader.vertexShader
+          .replace('#include <common>', '#include <common>\nvarying vec3 vStoneWorldPos;\nvarying vec3 vStoneWorldNormal;\n')
+          .replace('#include <displacementmap_vertex>', '#include <displacementmap_vertex>\nvec4 stoneWp = modelMatrix * vec4(transformed, 1.0);\nvStoneWorldPos = stoneWp.xyz;\nvStoneWorldNormal = normalize(mat3(modelMatrix) * objectNormal);\n');
+        shader.fragmentShader = shader.fragmentShader
+          .replace('#include <common>', '#include <common>\nvarying vec3 vStoneWorldPos;\nvarying vec3 vStoneWorldNormal;\nfloat stoneStrataNoise(vec3 p){ return sin(p.y*4.6+sin(p.x*0.95+p.z*0.85)*0.75)*0.55 + sin(p.x*2.7+p.z*2.5+sin(p.y*1.4)*0.5)*0.45; }\n')
+          .replace('#include <color_fragment>', `#include <color_fragment>\nfloat strata = stoneStrataNoise(vStoneWorldPos);\nfloat streak = sin(vStoneWorldPos.x * 3.4 + vStoneWorldPos.z * 3.1 + strata * 0.65) * 0.5 + 0.5;\nfloat upFacing = smoothstep(0.15, 0.85, vStoneWorldNormal.y);\ndiffuseColor.rgb *= (1.0 - (1.0 - upFacing * 0.45) * (${ps} * (0.45 + 0.55 * streak)) + upFacing * 0.045 + strata * 0.025);\n`)
+          .replace('#include <normal_fragment_maps>', `#include <normal_fragment_maps>\nvec3 sp = vStoneWorldPos * ${gs};\nvec3 mG = vec3(cos(sp.x*1.7+sin(sp.y*1.3+sp.z*1.1)), cos(sp.y*1.9+sin(sp.z*1.4+sp.x*1.2)), cos(sp.z*1.7+sin(sp.x*1.3+sp.y*1.1)));\nvec3 vM = normalize((viewMatrix * vec4(mG, 0.0)).xyz + vec3(0.0001));\nnormal = normalize(normal + (vM - normal * dot(vM, normal)) * ${ma});\n`);
+      };
+      mat.needsUpdate = true;
+      return mat;
+    }
+
+    function makeEixampleTextures() {
+      const c = document.createElement('canvas'); c.width = 512; c.height = 256;
+      const g = c.getContext('2d');
+      const ec = document.createElement('canvas'); ec.width = 512; ec.height = 256;
+      const eg = ec.getContext('2d');
+      g.fillStyle = '#d6c5ae'; g.fillRect(0, 0, 512, 256);
+      eg.fillStyle = '#000000'; eg.fillRect(0, 0, 512, 256);
+      const cols = 16, rows = 6, w = 512 / cols, h = 256 / rows;
+      for (let r = 0; r < rows; r++) {
+        g.fillStyle = 'rgba(130,110,88,0.25)'; g.fillRect(0, r * h, 512, 3);
+        for (let col = 0; col < cols; col++) {
+          const x = col * w + 7, y = r * h + 8;
+          g.fillStyle = (r + col) % 5 === 0 ? '#5c6670' : '#434b54';
+          g.fillRect(x, y, w - 14, h - 16);
+          g.fillStyle = '#bfa68a'; g.fillRect(x - 2, y + h - 17, w - 10, 3);
+          const hash = (r * 19 + col * 31 + 7) % 10;
+          if (hash < 6) {
+            eg.fillStyle = hash % 2 === 0 ? '#ffcf86' : '#f5b864';
+            eg.fillRect(x + 1, y + 1, w - 16, h - 18);
+          }
+        }
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.wrapS = tex.wrapT = THREE.RepeatWrapping;
+      tex.repeat.set(2, 1); tex.anisotropy = maxAniso;
+      const eTex = new THREE.CanvasTexture(ec);
+      eTex.colorSpace = THREE.SRGBColorSpace;
+      eTex.wrapS = eTex.wrapT = THREE.RepeatWrapping;
+      eTex.repeat.set(2, 1); eTex.anisotropy = maxAniso;
+      return { tex, eTex };
+    }
+
+    function makeGlassTex() {
+      const c = document.createElement('canvas'); c.width = 256; c.height = 512;
+      const g = c.getContext('2d');
+      const pal = ['#f59e0b','#ea580c','#dc2626','#eab308','#10b981','#0284c7','#4f46e5'];
+      for (let r = 0; r < 14; r++) for (let col = 0; col < 6; col++) {
+        g.fillStyle = pal[(r * 3 + col * 5) % pal.length];
+        g.fillRect(col * 42.6 + 2, r * 36.5 + 2, 38, 32);
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.colorSpace = THREE.SRGBColorSpace;
+      tex.anisotropy = maxAniso;
+      return tex;
+    }
+
+    const orgStone = makeStonePBRSet('organic');
+    const angStone = makeStonePBRSet('angular');
+    const { tex: eixampleTex, eTex: eixampleEmissiveTex } = makeEixampleTextures();
+    const glassTex = makeGlassTex();
+
+    const mkPlane = () => new THREE.Plane(new THREE.Vector3(0, -1, 0), 0);
+    const clips = {
+      crypt: mkPlane(), apse: mkPlane(), natBody: mkPlane(), natTow: mkPlane(),
+      pasBody: mkPlane(), pasTow: mkPlane(), naveW: mkPlane(), naveV: mkPlane(),
+      evan: mkPlane(), mary: mkPlane(), jesus: mkPlane(), glory: mkPlane(),
+    };
+    const mkStone = (hex, rough, cp, profile = 'organic', flat = false, dispScale = 0.042) => {
+      const ts = profile === 'angular' ? angStone : orgStone;
+      const ns = profile === 'angular' ? 1.45 : 1.35;
+      return applyStoneShader(new THREE.MeshStandardMaterial({
+        color: hex, map: ts.aTex, normalMap: ts.nTex, normalScale: new THREE.Vector2(ns, ns),
+        displacementMap: ts.dTex, displacementScale: dispScale, displacementBias: -dispScale * 0.5,
+        roughnessMap: ts.rTex, roughness: rough, metalness: 0.03, flatShading: flat,
+        clippingPlanes: [cp], clipShadows: true
+      }), profile);
+    };
+    const mkRecess = (cp, hex = 0x302720, em = 0xffaa44) => new THREE.MeshStandardMaterial({
+      color: hex, emissive: new THREE.Color(em), emissiveIntensity: 0, roughness: 0.95, metalness: 0.02, clippingPlanes: [cp]
+    });
+
+    const mCrypt = mkStone(0xaa8351, 0.9, clips.crypt);
+    const mApse = mkStone(0xba8f58, 0.88, clips.apse);
+    const mNatB = mkStone(0xc2955c, 0.86, clips.natBody);
+    const mNatT = mkStone(0xc99c62, 0.84, clips.natTow);
+    const mGoldNat = new THREE.MeshStandardMaterial({ color: 0xe2982b, emissive: 0xffb443, emissiveIntensity: 0, roughness: 0.22, metalness: 0.36, clippingPlanes: [clips.natTow], clipShadows: true });
+    const mCypress = new THREE.MeshStandardMaterial({ color: 0x316445, roughness: 0.38, metalness: 0.1, clippingPlanes: [clips.natBody], clipShadows: true });
+    const mWhiteNat = new THREE.MeshStandardMaterial({ color: 0xf7f2e8, emissive: 0xffe1ae, emissiveIntensity: 0, roughness: 0.2, metalness: 0.08, clippingPlanes: [clips.natTow], clipShadows: true });
+    const mPasB = mkStone(0xb2aba0, 0.84, clips.pasBody, 'angular', true);
+    const mPasT = mkStone(0xbbb4a9, 0.8, clips.pasTow, 'angular', true);
+    const mFinPas = new THREE.MeshStandardMaterial({ color: 0xeae4d8, emissive: 0xdde7ff, emissiveIntensity: 0, roughness: 0.26, metalness: 0.24, flatShading: true, clippingPlanes: [clips.pasTow], clipShadows: true });
+    const mNaveW = mkStone(0xcfb895, 0.86, clips.naveW);
+    const mNaveV = mkStone(0xd6c1a0, 0.82, clips.naveV);
+    const mRoof = new THREE.MeshStandardMaterial({ color: 0xa67448, roughness: 0.66, metalness: 0.06, normalMap: orgStone.nTex, normalScale: new THREE.Vector2(0.85, 0.85), displacementMap: orgStone.dTex, displacementScale: 0.022, displacementBias: -0.011, roughnessMap: orgStone.rTex, clippingPlanes: [clips.naveV], clipShadows: true });
+    const mGlass = new THREE.MeshStandardMaterial({ color: 0xffffff, map: glassTex, emissive: 0xff9f2e, emissiveMap: glassTex, emissiveIntensity: 0.2, roughness: 0.2, side: THREE.DoubleSide, clippingPlanes: [clips.naveW] });
+    const mEvan = mkStone(0xd1c1a8, 0.75, clips.evan);
+    const mFinEvan = new THREE.MeshStandardMaterial({ color: 0xf9f3e8, emissive: 0xffebc2, emissiveIntensity: 0, roughness: 0.22, metalness: 0.25, clippingPlanes: [clips.evan], clipShadows: true });
+    const mMary = mkStone(0xd4c5ae, 0.74, clips.mary);
+    const mStar = new THREE.MeshPhysicalMaterial({ color: 0xffe8a3, emissive: 0xffb830, emissiveIntensity: 2.1, roughness: 0.12, metalness: 0.25, clearcoat: 1, clippingPlanes: [clips.mary] });
+    const mJesus = mkStone(0xd8cab3, 0.72, clips.jesus);
+    const mCross = new THREE.MeshPhysicalMaterial({ color: 0xffffff, emissive: 0xffd982, emissiveIntensity: 0.65, roughness: 0.16, metalness: 0.3, clearcoat: 1, clippingPlanes: [clips.jesus] });
+    const mGlory = mkStone(0xccb99b, 0.78, clips.glory);
+
+    const rCrypt = mkRecess(clips.crypt);
+    const rApse = mkRecess(clips.apse);
+    const rNat = mkRecess(clips.natTow, 0x302720, 0xffaa44);
+    const rPas = mkRecess(clips.pasTow, 0x262422, 0xc9dcff);
+    const rNave = mkRecess(clips.naveW, 0x302720, 0xff9f38);
+    const rEvan = mkRecess(clips.evan, 0x302720, 0xffb85c);
+    const rMary = mkRecess(clips.mary, 0x302720, 0xffd07a);
+    const rJesus = mkRecess(clips.jesus, 0x302720, 0xffcb70);
+    const rGlory = mkRecess(clips.glory, 0x302720, 0xffb04a);
+
+    // Barcelona Plaza, Plaça de Gaudí Reflecting Pool, Streetlamps, Cypresses & Collserola Ridge
+    const plaza = new THREE.Mesh(new THREE.BoxGeometry(49, 0.5, 49), new THREE.MeshStandardMaterial({ color: 0xc5b8a4, roughness: 0.9 }));
+    plaza.position.y = -0.25; plaza.receiveShadow = true; scene.add(plaza);
+    const poolRim = new THREE.Mesh(new THREE.BoxGeometry(6.8, 0.24, 14.2), new THREE.MeshStandardMaterial({ color: 0xb7aa96, roughness: 0.85 }));
+    poolRim.position.set(17.8, 0.06, 0); poolRim.receiveShadow = true; scene.add(poolRim);
+    const poolWater = new THREE.Mesh(new THREE.PlaneGeometry(5.9, 13.3), new THREE.MeshPhysicalMaterial({ color: 0x26596e, roughness: 0.08, metalness: 0.06, clearcoat: 1 }));
+    poolWater.rotation.x = -Math.PI / 2; poolWater.position.set(17.8, 0.2, 0); scene.add(poolWater);
+    const ground = new THREE.Mesh(new THREE.PlaneGeometry(460, 460), new THREE.MeshStandardMaterial({ color: 0x686e75, roughness: 0.94 }));
+    ground.rotation.x = -Math.PI / 2; ground.position.y = -0.52; ground.receiveShadow = true; scene.add(ground);
+
+    const mEix = new THREE.MeshStandardMaterial({ color: 0xffffff, map: eixampleTex, emissive: 0xffc978, emissiveMap: eixampleEmissiveTex, emissiveIntensity: 0, roughness: 0.88 });
+    const mEixRoof = new THREE.MeshStandardMaterial({ color: 0xa66f4d, roughness: 0.82 });
+    const mHill = new THREE.MeshStandardMaterial({ color: 0x8e9ba3, roughness: 0.94 });
+    const mLampGlow = new THREE.MeshStandardMaterial({ color: 0xfff0cc, emissive: 0xffbd59, emissiveIntensity: 0.15, roughness: 0.25 });
+
+    const bldgGeo = new THREE.BoxGeometry(21, 1, 21);
+    const bRoofGeo = new THREE.BoxGeometry(20.4, 0.25, 20.4);
+    const coords = [];
+    for (let gx = -3; gx <= 3; gx++) for (let gz = -3; gz <= 3; gz++) {
+      if ((gx === 0 && gz === 0) || (gx === 0 && gz === 1) || (gx === 1 && gz === -1)) continue;
+      const px = gx * 33, pz = gz * 33;
+      if (Math.hypot(px, pz) < 35) continue;
+      coords.push([px, 4.6 + ((Math.abs(gx * 11 + gz * 17) % 6) * 0.7), pz]);
+    }
+    const bInst = new THREE.InstancedMesh(bldgGeo, mEix, coords.length);
+    const rInst = new THREE.InstancedMesh(bRoofGeo, mEixRoof, coords.length);
+    const dummy = new THREE.Object3D();
+    coords.forEach(([bx, bh, bz], idx) => {
+      dummy.position.set(bx, -0.5 + bh / 2, bz); dummy.scale.set(1.12, bh, 1.12); dummy.updateMatrix(); bInst.setMatrixAt(idx, dummy.matrix);
+      dummy.position.set(bx, -0.5 + bh + 0.12, bz); dummy.scale.set(1.1, 1, 1.1); dummy.updateMatrix(); rInst.setMatrixAt(idx, dummy.matrix);
+    });
+    bInst.castShadow = true; bInst.receiveShadow = true; rInst.receiveShadow = true;
+    scene.add(bInst, rInst);
+
+    const lampCoords = [];
+    for (let i = -18; i <= 18; i += 9) lampCoords.push([i, -20.6], [i, 20.6], [-20.6, i], [20.6, i]);
+    const lampPosts = new THREE.InstancedMesh(new THREE.CylinderGeometry(0.05, 0.09, 2.55, 6), new THREE.MeshStandardMaterial({ color: 0x292d34, roughness: 0.4, metalness: 0.72 }), lampCoords.length);
+    const lampGlobes = new THREE.InstancedMesh(new THREE.SphereGeometry(0.22, 8, 6), mLampGlow, lampCoords.length);
+    lampCoords.forEach(([lx, lz], i) => {
+      dummy.position.set(lx, 1.28, lz); dummy.scale.set(1, 1, 1); dummy.updateMatrix(); lampPosts.setMatrixAt(i, dummy.matrix);
+      dummy.position.set(lx, 2.66, lz); dummy.updateMatrix(); lampGlobes.setMatrixAt(i, dummy.matrix);
+    });
+    scene.add(lampPosts, lampGlobes);
+
+    const hillGeo = new THREE.ConeGeometry(34, 16, 12);
+    const hillInst = new THREE.InstancedMesh(hillGeo, mHill, 24);
+    for (let i = 0; i < 24; i++) {
+      const ang = (i / 24) * Math.PI * 2, rad = 165 + (i % 3) * 16, hs = 0.75 + ((i * 7) % 5) * 0.28;
+      dummy.position.set(Math.cos(ang) * rad, 4.5 * hs - 2, Math.sin(ang) * rad);
+      dummy.scale.set(1.8 + (i % 2) * 0.5, hs, 1.3); dummy.rotation.y = ang; dummy.updateMatrix();
+      hillInst.setMatrixAt(i, dummy.matrix);
+    }
+    scene.add(hillInst);
+
+    function computeStackTransform(progress, start, end, dropHeight = 5.5, mode = 'drop') {
+      if (progress <= start) return { visible: false, offsetY: dropHeight, scaleXY: 0.72, scaleY: 0.02 };
+      if (progress >= end) return { visible: true, offsetY: 0, scaleXY: 1, scaleY: 1 };
+      const u = Math.max(0, Math.min(1, (progress - start) / Math.max(0.0001, end - start)));
+      const easeOut = 1 - Math.pow(1 - u, 3);
+      if (mode === 'growY') return { visible: true, offsetY: 0, scaleXY: 0.92 + 0.08 * easeOut, scaleY: 0.04 + 0.96 * easeOut };
+      if (mode === 'pop') return { visible: true, offsetY: (1 - easeOut) * dropHeight * 0.35, scaleXY: 0.4 + 0.6 * easeOut, scaleY: 0.4 + 0.6 * easeOut };
+      return { visible: true, offsetY: (1 - easeOut) * dropHeight, scaleXY: 0.78 + 0.22 * easeOut, scaleY: 0.65 + 0.35 * easeOut };
+    }
+
+    const stackParts = [];
+    function regPart(phase, obj, start, end, dropHeight = 5.0, mode = 'drop', halfHeight = 0) {
+      stackParts.push({ phase, obj, baseY: obj.position.y, sx: obj.scale.x, sy: obj.scale.y, sz: obj.scale.z, start, end, dropHeight, mode, halfHeight });
+    }
+
+    function buildHDTower(phase, x, z, baseY, h, r0, r1, segs, ribs, louvers, sMat, rMat, fMat, aMat, angular, stagger = 0) {
+      const g = new THREE.Group(); g.position.set(x, baseY, z);
+      const pl = new THREE.Mesh(new THREE.CylinderGeometry(r0 * 1.12, r0 * 1.26, 2.6, segs), sMat);
+      pl.position.y = 1.3; g.add(pl);
+      regPart(phase, pl, stagger * 0.5, stagger * 0.5 + 0.14, 4.0, 'drop');
+
+      const drumTiers = 8;
+      for (let k = 0; k < drumTiers; k++) {
+        const t0 = k / drumTiers, t1 = (k + 1) / drumTiers;
+        const dr0 = THREE.MathUtils.lerp(r0 * 0.94, r1 * 0.92, Math.pow(t0, 0.72));
+        const dr1 = THREE.MathUtils.lerp(r0 * 0.94, r1 * 0.92, Math.pow(t1, 0.72));
+        const segH = h / drumTiers;
+        const dm = new THREE.Mesh(new THREE.CylinderGeometry(dr1, dr0, segH * 1.015, segs), sMat);
+        dm.position.y = 2.4 + (t0 + t1) * 0.5 * h; g.add(dm);
+        const dStart = Math.min(0.7, stagger + (k / drumTiers) * 0.56 + 0.04);
+        regPart(phase, dm, dStart, Math.min(0.84, dStart + 0.15), 5.2, 'drop');
+      }
+
+      const ribGeo = new THREE.BoxGeometry(0.16, h * 0.94, 0.28);
+      const lean = Math.atan2(r0 - r1, h);
+      for (let i = 0; i < ribs; i++) {
+        const ang = (i / ribs) * Math.PI * 2, midR = (r0 + r1) * 0.52;
+        const rib = new THREE.Mesh(ribGeo, sMat);
+        rib.position.set(Math.cos(ang) * midR, 2.4 + h * 0.47, Math.sin(ang) * midR);
+        rib.rotation.y = -ang; rib.rotation.z = lean; g.add(rib);
+        regPart(phase, rib, stagger + 0.1, Math.min(0.86, stagger + 0.74), 0, 'growY', h * 0.47);
+      }
+
+      for (let b = 0; b < louvers; b++) {
+        const frac = 0.16 + (b / louvers) * 0.78;
+        const r = THREE.MathUtils.lerp(r0, r1, Math.pow(frac, 0.72));
+        const yPos = 2.4 + frac * h;
+        const bStart = Math.min(0.74, stagger + 0.08 + (b / Math.max(1, louvers - 1)) * 0.56);
+        const bEnd = Math.min(0.86, bStart + 0.14);
+        const slot = new THREE.Mesh(new THREE.CylinderGeometry(r * 0.99, r * 1.01, 0.34, segs), rMat);
+        slot.position.y = yPos; g.add(slot);
+        regPart(phase, slot, bStart, bEnd, 3.2, 'pop');
+        if (b % 2 === 0) {
+          const collar = new THREE.Mesh(new THREE.TorusGeometry(r * 1.05, 0.085, 6, segs), sMat);
+          collar.rotation.x = Math.PI / 2; collar.position.y = yPos + 0.24; g.add(collar);
+          regPart(phase, collar, bStart, bEnd, 4.0, 'drop');
+        }
+      }
+
+      const cy = 2.4 + h;
+      const crStart = Math.min(0.82, stagger + 0.66);
+      const nk = new THREE.Mesh(new THREE.CylinderGeometry(r1 * 0.9, r1 * 1.12, 1.2, segs), aMat);
+      nk.position.y = cy + 0.55; g.add(nk);
+      regPart(phase, nk, crStart, Math.min(0.92, crStart + 0.11), 4.5, 'drop');
+      if (angular) {
+        const pyr = new THREE.Mesh(new THREE.OctahedronGeometry(r1 * 1.25, 0), fMat);
+        pyr.scale.set(0.95, 1.55, 0.95); pyr.position.y = cy + 1.95; g.add(pyr);
+        regPart(phase, pyr, Math.min(0.86, crStart + 0.05), Math.min(0.96, crStart + 0.14), 5.0, 'drop');
+        const sp = new THREE.Mesh(new THREE.ConeGeometry(r1 * 0.48, 1.55, 4), aMat);
+        sp.position.y = cy + 3.2; g.add(sp);
+        regPart(phase, sp, Math.min(0.9, crStart + 0.08), 1.0, 4.8, 'drop');
+      } else {
+        const orb = new THREE.Mesh(new THREE.IcosahedronGeometry(r1 * 1.15, 1), fMat);
+        orb.position.y = cy + 1.7; g.add(orb);
+        regPart(phase, orb, Math.min(0.86, crStart + 0.05), Math.min(0.96, crStart + 0.14), 5.0, 'drop');
+        const spGeo = new THREE.ConeGeometry(r1 * 0.22, r1 * 1.5, 4);
+        for (let s = 0; s < 4; s++) {
+          const ang = (s / 4) * Math.PI * 2;
+          const sp = new THREE.Mesh(spGeo, aMat);
+          sp.position.set(Math.cos(ang) * r1 * 1.05, cy + 1.7, Math.sin(ang) * r1 * 1.05);
+          sp.rotation.z = -Math.cos(ang) * (Math.PI / 2); sp.rotation.x = Math.sin(ang) * (Math.PI / 2); g.add(sp);
+          regPart(phase, sp, Math.min(0.88, crStart + 0.07), Math.min(0.98, crStart + 0.16), 3.0, 'pop');
+        }
+        const tip = new THREE.Mesh(new THREE.ConeGeometry(r1 * 0.44, 1.6, 8), aMat);
+        tip.position.y = cy + 3.05; g.add(tip);
+        regPart(phase, tip, Math.min(0.91, crStart + 0.09), 1.0, 4.8, 'drop');
+      }
+      g.traverse((c) => { if (c.isMesh) { c.castShadow = true; c.receiveShadow = true; } });
+      return g;
+    }
+
+    // Build Phases with piece-by-piece stacking
+    const gCrypt = new THREE.Group();
+    const pPlinth = new THREE.Mesh(new THREE.BoxGeometry(10.5, 1.05, 22), mCrypt); pPlinth.position.y = 0.52; gCrypt.add(pPlinth);
+    regPart('crypt', pPlinth, 0.02, 0.65, 3.2, 'drop');
+    const tPlinth = new THREE.Mesh(new THREE.BoxGeometry(17.6, 1.05, 8.4), mCrypt); tPlinth.position.y = 0.52; gCrypt.add(tPlinth);
+    regPart('crypt', tPlinth, 0.28, 0.96, 3.2, 'drop');
+    scene.add(gCrypt);
+
+    const gApse = new THREE.Group();
+    const apseCore = new THREE.Mesh(new THREE.CylinderGeometry(5.1, 5.3, 8.2, 24, 8, false, Math.PI * 0.5, Math.PI), mApse);
+    apseCore.position.set(0, 5.1, -7.5); gApse.add(apseCore);
+    regPart('apse', apseCore, 0.0, 0.45, 0, 'growY', 4.1);
+    for (let i = 0; i < 7; i++) {
+      const th = Math.PI + (i / 6) * Math.PI, cx = Math.cos(th) * 5.35, cz = -7.5 + Math.sin(th) * 5.35;
+      const ch = new THREE.Mesh(new THREE.CylinderGeometry(0.95, 1.08, 6.4, 12, 6), mApse); ch.position.set(cx, 4.2, cz); gApse.add(ch);
+      regPart('apse', ch, 0.14 + i * 0.05, 0.42 + i * 0.05, 5.2, 'drop');
+      const sl = new THREE.Mesh(new THREE.BoxGeometry(0.28, 3.4, 0.15), rApse);
+      sl.position.set(Math.cos(th) * 6.32, 4.4, -7.5 + Math.sin(th) * 6.32); sl.rotation.y = -th + Math.PI / 2; gApse.add(sl);
+      regPart('apse', sl, 0.24 + i * 0.05, 0.5 + i * 0.05, 2.5, 'pop');
+      const pin = new THREE.Mesh(new THREE.ConeGeometry(0.32, 6.2, 10, 4), mApse);
+      pin.position.set(Math.cos(th) * 5.1, 10.5, -7.5 + Math.sin(th) * 5.1); gApse.add(pin);
+      regPart('apse', pin, 0.54 + i * 0.04, 0.8 + i * 0.04, 5.5, 'drop');
+    }
+    scene.add(gApse);
+
+    const gNatB = new THREE.Group();
+    for (let c = 0; c < 3; c++) {
+      const nw = new THREE.Mesh(new THREE.BoxGeometry(2.4, 3.25, 8.2, 4, 6, 14), mNatB);
+      nw.position.set(7.2, 2.6 + c * 3.2, 0); gNatB.add(nw);
+      regPart('nativityBody', nw, c * 0.18, c * 0.18 + 0.24, 5.0, 'drop');
+    }
+    [-2.2, 0, 2.2].forEach((pz, idx) => {
+      const rec = new THREE.Mesh(new THREE.BoxGeometry(0.45, 4.4, 1.35), rCrypt); rec.position.set(8.25, 3.3, pz); gNatB.add(rec);
+      regPart('nativityBody', rec, 0.16 + idx * 0.07, 0.36 + idx * 0.07, 2.5, 'pop');
+      const gb = new THREE.Mesh(new THREE.ConeGeometry(1.5, 5.8, 4, 6), mNatB);
+      gb.rotation.y = Math.PI / 4; gb.scale.set(0.82, idx === 1 ? 1.38 : 1.05, 1); gb.position.set(8.25, idx === 1 ? 8 : 6.7, pz); gNatB.add(gb);
+      regPart('nativityBody', gb, 0.54 + idx * 0.08, 0.78 + idx * 0.08, 5.2, 'drop');
+    });
+    const natCrestPillar = new THREE.Mesh(new THREE.CylinderGeometry(0.24, 0.34, 1.9, 10, 3), mNatB); natCrestPillar.position.set(8.35, 12.1, 0); gNatB.add(natCrestPillar);
+    regPart('nativityBody', natCrestPillar, 0.74, 0.9, 4.2, 'drop');
+    const natCrestCap = new THREE.Mesh(new THREE.OctahedronGeometry(0.38, 0), mGoldNat); natCrestCap.position.set(8.35, 13.3, 0); gNatB.add(natCrestCap);
+    regPart('nativityBody', natCrestCap, 0.84, 1.0, 4.6, 'drop');
+    scene.add(gNatB);
+
+    const gNatT = new THREE.Group();
+    [-2.85, -1, 1, 2.85].forEach((tz, i) => {
+      const stag = (i === 1 || i === 2) ? 0.12 : 0.02 * i;
+      gNatT.add(buildHDTower('nativityTowers', 7.45, tz, 1, i === 1 || i === 2 ? 24.4 : 22.2, 0.94, 0.34, 16, 10, 14, mNatT, rNat, mGoldNat, mWhiteNat, false, stag));
+    });
+    scene.add(gNatT);
+
+    const gPasB = new THREE.Group();
+    for (let c = 0; c < 3; c++) {
+      const pw = new THREE.Mesh(new THREE.BoxGeometry(2.2, 3.3, 8.2, 4, 6, 14), mPasB);
+      pw.position.set(-7.1, 2.65 + c * 3.25, 0); gPasB.add(pw);
+      regPart('passionBody', pw, c * 0.16, c * 0.16 + 0.24, 5.0, 'drop');
+    }
+    const pNarthex = new THREE.Mesh(new THREE.BoxGeometry(0.5, 7.6, 6.8), rCrypt); pNarthex.position.set(-8.05, 4.9, 0); gPasB.add(pNarthex);
+    regPart('passionBody', pNarthex, 0.18, 0.45, 2.5, 'pop');
+    [-3.4, -2.04, -0.68, 0.68, 2.04, 3.4].forEach((bz, i) => {
+      const pil = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.45, 9.6, 6, 10), mPasB);
+      pil.position.set(-9.15, 5.1, bz); pil.rotation.z = i % 2 === 0 ? -0.14 : -0.22; gPasB.add(pil);
+      regPart('passionBody', pil, 0.32 + i * 0.06, 0.56 + i * 0.06, 6.0, 'drop');
+    });
+    const cor = new THREE.Mesh(new THREE.BoxGeometry(2.7, 1.55, 8.9, 4, 3, 14), mPasB); cor.position.set(-8.65, 9.6, 0); gPasB.add(cor);
+    regPart('passionBody', cor, 0.72, 0.96, 5.6, 'drop');
+    scene.add(gPasB);
+
+    const gPasT = new THREE.Group();
+    [-2.85, -1, 1, 2.85].forEach((tz, i) => {
+      const stag = (i === 1 || i === 2) ? 0.12 : 0.02 * i;
+      gPasT.add(buildHDTower('passionTowers', -7.45, tz, 1, i === 1 || i === 2 ? 25.4 : 23.8, 0.96, 0.36, 8, 6, 14, mPasT, rPas, mFinPas, mFinPas, true, stag));
+    });
+    scene.add(gPasT);
+
+    const gNaveW = new THREE.Group();
+    [-1, 1].forEach((s) => {
+      for (let b = 0; b < 3; b++) {
+        const bz = -5.1 + b * 5.48;
+        const aw = new THREE.Mesh(new THREE.BoxGeometry(0.65, 7.6, 5.52), mNaveW); aw.position.set(s * 4.45, 4.8, bz); gNaveW.add(aw);
+        regPart('naveWalls', aw, 0.04 + b * 0.14, 0.24 + b * 0.14, 5.5, 'drop');
+        const cw = new THREE.Mesh(new THREE.BoxGeometry(0.55, 10.6, 5.52), mNaveW); cw.position.set(s * 2.4, 6.3, bz); gNaveW.add(cw);
+        regPart('naveWalls', cw, 0.22 + b * 0.14, 0.44 + b * 0.14, 6.0, 'drop');
+      }
+      [-5.8, -4, -2, 2, 4, 5.8, 7.5].forEach((wz, wi) => {
+        const fr = new THREE.Mesh(new THREE.BoxGeometry(0.22, 5.8, 1.85), rNave); fr.position.set(s * 2.62, 8.2, wz); gNaveW.add(fr);
+        regPart('naveWalls', fr, 0.4 + wi * 0.05, 0.62 + wi * 0.05, 3.0, 'pop');
+        const gl = new THREE.Mesh(new THREE.PlaneGeometry(1.65, 5.4), mGlass); gl.rotation.y = Math.PI / 2; gl.position.set(s * 2.75, 8.2, wz); gNaveW.add(gl);
+        regPart('naveWalls', gl, 0.44 + wi * 0.05, 0.68 + wi * 0.05, 3.5, 'pop');
+      });
+      for (let gz = -6.4, gi = 0; gz <= 7.8; gz += 1.75, gi++) {
+        const gb = new THREE.Mesh(new THREE.ConeGeometry(1.18, 3.2, 4), mNaveW);
+        gb.rotation.y = Math.PI / 4; gb.scale.set(0.55, 1, 1); gb.position.set(s * 4.45, 9.6, gz); gNaveW.add(gb);
+        regPart('naveWalls', gb, 0.56 + gi * 0.04, 0.78 + gi * 0.04, 4.8, 'drop');
+        const oc = new THREE.Mesh(new THREE.CylinderGeometry(0.36, 0.36, 0.72, 12), rNave);
+        oc.rotation.z = Math.PI / 2; oc.position.set(s * 4.45, 8.95, gz); gNaveW.add(oc);
+        regPart('naveWalls', oc, 0.64 + gi * 0.035, 0.86 + gi * 0.035, 2.0, 'pop');
+      }
+    });
+    scene.add(gNaveW);
+
+    const gNaveV = new THREE.Group();
+    for (let b = 0; b < 3; b++) {
+      const cr = new THREE.Mesh(new THREE.CylinderGeometry(2.65, 2.65, 5.72, 8, 1, false, 0, Math.PI), mRoof);
+      cr.rotation.z = Math.PI / 2; cr.rotation.y = Math.PI / 2; cr.position.set(0, 11.4, -5.25 + b * 5.66); gNaveV.add(cr);
+      regPart('naveVaults', cr, 0.1 + b * 0.18, 0.4 + b * 0.18, 6.2, 'drop');
+    }
+    [[0, -3.5], [0, 3.5], [-3.5, 0], [3.5, 0]].forEach(([sx, sz], si) => {
+      const sh = new THREE.Mesh(new THREE.ConeGeometry(1.7, 5.2, 4), mNaveV);
+      sh.rotation.y = Math.PI / 4; sh.position.set(sx, 13.4, sz); gNaveV.add(sh);
+      regPart('naveVaults', sh, 0.56 + si * 0.08, 0.82 + si * 0.08, 5.6, 'drop');
+    });
+    scene.add(gNaveV);
+
+    const gEvan = new THREE.Group();
+    [[-2.45, -2.45], [2.45, -2.45], [-2.45, 2.45], [2.45, 2.45]].forEach(([ex, ez], idx) => {
+      gEvan.add(buildHDTower('evangelistTowers', ex, ez, 10.2, 20.6, 1.08, 0.48, 12, 8, 12, mEvan, rEvan, mFinEvan, mGoldNat, true, idx * 0.04));
+    });
+    scene.add(gEvan);
+
+    const gMary = new THREE.Group();
+    gMary.add(buildHDTower('virginMaryTower', 0, -6.4, 9.8, 21.8, 1.78, 0.72, 12, 12, 14, mMary, rMary, mFinEvan, mGoldNat, false, 0));
+    const starMesh = new THREE.Mesh(new THREE.OctahedronGeometry(1.3, 0), mStar);
+    starMesh.position.set(0, 35.6, -6.4); gMary.add(starMesh);
+    regPart('virginMaryTower', starMesh, 0.9, 1.0, 5.5, 'drop');
+    const starLight = new THREE.PointLight(0xffd275, 0, 24, 1.5);
+    starLight.position.set(0, 35.6, -6.4); gMary.add(starLight);
+    scene.add(gMary);
+
+    const gJesus = new THREE.Group();
+    const drum = new THREE.Mesh(new THREE.CylinderGeometry(2.55, 2.88, 4.8, 12), mJesus); drum.position.y = 12.2; gJesus.add(drum);
+    regPart('jesusTower', drum, 0.0, 0.14, 5.0, 'drop');
+    for (let i = 0; i < 12; i++) {
+      const ang = (i / 12) * Math.PI * 2;
+      const jr = new THREE.Mesh(new THREE.BoxGeometry(0.22, 24.4, 0.42), mJesus);
+      jr.position.set(Math.cos(ang) * 1.72, 26, Math.sin(ang) * 1.72); jr.rotation.y = -ang; jr.rotation.z = 0.055; gJesus.add(jr);
+      regPart('jesusTower', jr, 0.14, 0.86, 0, 'growY', 12.2);
+      if (i % 2 === 0) {
+        const jg = new THREE.Mesh(new THREE.ConeGeometry(0.82, 3.6, 4), mJesus);
+        jg.position.set(Math.cos(ang) * 2.52, 15.8, Math.sin(ang) * 2.52); jg.rotation.y = -ang + Math.PI / 4; gJesus.add(jg);
+        regPart('jesusTower', jg, 0.08 + (i / 12) * 0.14, 0.24 + (i / 12) * 0.14, 5.0, 'drop');
+      }
+    }
+    for (let tier = 0; tier < 11; tier++) {
+      const t0 = tier / 11, t1 = (tier + 1) / 11;
+      const r0 = THREE.MathUtils.lerp(2.38, 0.92, Math.pow(t0, 0.78));
+      const r1 = THREE.MathUtils.lerp(2.38, 0.92, Math.pow(t1, 0.78));
+      const td = new THREE.Mesh(new THREE.CylinderGeometry(r1, r0, (26.2 / 11) * 1.015, 16), mJesus);
+      td.position.y = 13.8 + (t0 + t1) * 0.5 * 26.2; gJesus.add(td);
+      const tStart = 0.08 + t0 * 0.7, tEnd = Math.min(0.88, tStart + 0.14);
+      regPart('jesusTower', td, tStart, tEnd, 6.2, 'drop');
+
+      const frac = 0.1 + t0 * 0.84, yPos = 14.2 + frac * 25;
+      const r = THREE.MathUtils.lerp(2.36, 0.94, Math.pow(frac, 0.78));
+      const ws = new THREE.Mesh(new THREE.CylinderGeometry(r * 1.01, r * 1.02, 0.55, 12), rJesus); ws.position.y = yPos; gJesus.add(ws);
+      regPart('jesusTower', ws, tStart + 0.02, Math.min(0.9, tEnd + 0.02), 3.0, 'pop');
+      const bl = new THREE.Mesh(new THREE.TorusGeometry(r * 1.05, 0.11, 6, 16), mJesus); bl.rotation.x = Math.PI / 2; bl.position.y = yPos + 0.36; gJesus.add(bl);
+      regPart('jesusTower', bl, tStart + 0.03, Math.min(0.91, tEnd + 0.03), 4.5, 'drop');
+    }
+    const crossV = new THREE.Mesh(new THREE.BoxGeometry(0.65, 4.4, 0.65), mCross); crossV.position.y = 41.95; gJesus.add(crossV);
+    regPart('jesusTower', crossV, 0.86, 0.95, 6.0, 'drop');
+    const crossX = new THREE.Mesh(new THREE.BoxGeometry(3.25, 0.62, 0.62), mCross); crossX.position.y = 42.45; gJesus.add(crossX);
+    regPart('jesusTower', crossX, 0.91, 0.99, 5.0, 'drop');
+    const crossZ = new THREE.Mesh(new THREE.BoxGeometry(0.62, 0.62, 3.25), mCross); crossZ.position.y = 42.45; gJesus.add(crossZ);
+    regPart('jesusTower', crossZ, 0.93, 1.0, 5.0, 'drop');
+    scene.add(gJesus);
+
+    const gGlory = new THREE.Group();
+    for (let c = 0; c < 3; c++) {
+      const gw = new THREE.Mesh(new THREE.BoxGeometry(8.6, 3.6, 2.2, 14, 6, 4), mGlory); gw.position.set(0, 2.7 + c * 3.53, 9.6); gGlory.add(gw);
+      regPart('gloryFacade', gw, c * 0.12, c * 0.12 + 0.22, 5.2, 'drop');
+    }
+    [-2.85, -1, 1, 2.85].forEach((gx, i) => gGlory.add(buildHDTower('gloryFacade', gx, 10.35, 1, i === 1 || i === 2 ? 26.5 : 24.2, 0.96, 0.36, 12, 8, 14, mGlory, rGlory, mGoldNat, mWhiteNat, false, 0.1 + i * 0.04)));
+    scene.add(gGlory);
+    scene.traverse((o) => {
+      const g = o.geometry;
+      if (g && g.index && g.attributes && g.attributes.position && g.attributes.normal && g.attributes.uv && !g.attributes.tangent) {
+        g.computeTangents();
+      }
+    });
+
+    const intLights = [[0,7.6,-2.6],[0,7.6,3.6]].map(([x,y,z]) => {
+      const l = new THREE.PointLight(0xffa947, 0, 22, 1.5); l.position.set(x,y,z); scene.add(l); return l;
+    });
+    const upNat = new THREE.PointLight(0xffb454, 0, 34, 1.35); upNat.position.set(12.2, 16.5, 0); scene.add(upNat);
+    const upPas = new THREE.PointLight(0xd4e2ff, 0, 34, 1.35); upPas.position.set(-12.2, 16.5, 0); scene.add(upPas);
+    const upCen = new THREE.PointLight(0xffcb78, 0, 44, 1.25); upCen.position.set(0, 31, 4.8); scene.add(upCen);
+
+    function makeCrane(h, x, z) {
+      const g = new THREE.Group(); g.position.set(x, 0, z);
+      const mMat = new THREE.MeshStandardMaterial({ color: 0xd97724, roughness: 0.42, metalness: 0.35 });
+      const mast = new THREE.Mesh(new THREE.BoxGeometry(0.45, h, 0.45), mMat); mast.position.y = h / 2; g.add(mast);
+      const jib = new THREE.Group(); jib.position.y = h;
+      const boom = new THREE.Mesh(new THREE.BoxGeometry(0.32, 0.36, 9.2), mMat); boom.position.set(0, 0.78, 3); jib.add(boom);
+      g.add(jib); g.visible = false; scene.add(g);
+      return { g, jib };
+    }
+    const craneNat = makeCrane(18, 10.8, 4.8), cranePas = makeCrane(20, -10.8, -4.8), craneCen = makeCrane(32, 5.4, -5.4);
+
+    // Narration System (Web Speech API + live captions)
+    let narrationEnabled = false;
+    let lastSpokenId = null;
+    const captionEl = document.getElementById('narration-caption');
+    const narrateBtn = document.getElementById('narrate-btn');
+
+    function getSegmentForYear(y) {
+      return SEGMENTS.find((s) => y >= s.from && y < s.to) || SEGMENTS[SEGMENTS.length - 1];
+    }
+
+    function stopNarrationSpeech() {
+      lastSpokenId = null;
+      if ('speechSynthesis' in window) {
+        try { window.speechSynthesis.cancel(); } catch {}
+      }
+    }
+
+    function speakSegmentIfNeeded(y, force = false) {
+      const seg = getSegmentForYear(y);
+      if (!narrationEnabled) {
+        captionEl.classList.add('hidden');
+        return;
+      }
+      captionEl.textContent = seg.narration;
+      captionEl.classList.remove('hidden');
+      if (!force && seg.id === lastSpokenId) return;
+      lastSpokenId = seg.id;
+      if ('speechSynthesis' in window) {
+        try {
+          window.speechSynthesis.cancel();
+          const u = new SpeechSynthesisUtterance(seg.narration);
+          u.rate = 0.98;
+          window.speechSynthesis.speak(u);
+        } catch {}
+      }
+    }
+
+    const TOD_PRESETS = { day: 0.0, dusk: 0.25, night: 0.52 };
+    let targetTod = TOD_PRESETS.dusk, currentTod = TOD_PRESETS.dusk, cycleTod = false;
+    const todRow = document.getElementById('tod-row'), todCycleBtn = document.getElementById('tod-cycle-btn');
+    const lerpCol = (a, b, t) => new THREE.Color(a).lerp(new THREE.Color(b), THREE.MathUtils.clamp(t, 0, 1)).getHex();
+
+    function applyTimeOfDay(tod) {
+      const ang = tod * Math.PI * 2, dCos = Math.cos(ang);
+      const nightF = THREE.MathUtils.smoothstep(-dCos, -0.15, 0.45);
+      const duskF = Math.exp(-Math.pow((dCos - 0.12) / 0.38, 2)) * (1 - nightF * 0.65);
+
+      const topC = lerpCol(lerpCol(0x4287d6, 0x6b93c4, duskF), 0x060b19, nightF);
+      const midC = lerpCol(lerpCol(0x8fc0ea, 0xd2c4c0, duskF), 0x101c36, nightF);
+      const horC = lerpCol(lerpCol(0xdcebf7, 0xf2c593, duskF), 0x1b2b4a, nightF);
+
+      skyMat.uniforms.topColor.value.setHex(topC);
+      skyMat.uniforms.midColor.value.setHex(midC);
+      skyMat.uniforms.horizonColor.value.setHex(horC);
+      scene.background.setHex(horC); fog.color.setHex(horC);
+      fog.density = THREE.MathUtils.lerp(0.0036, 0.0052, nightF);
+
+      const az = 0.78 + tod * Math.PI * 1.4;
+      const elev = THREE.MathUtils.lerp(THREE.MathUtils.lerp(0.95, 0.22, duskF * 0.9), 0.78, nightF);
+      sun.position.set(Math.cos(az) * Math.cos(elev) * 78, Math.sin(elev) * 78, Math.sin(az) * Math.cos(elev) * 78);
+      sun.color.setHex(lerpCol(lerpCol(0xfff4e0, 0xffb86c, duskF), 0x6f97db, nightF));
+      sun.intensity = THREE.MathUtils.lerp(THREE.MathUtils.lerp(2.25, 1.95, duskF), 0.72, nightF);
+
+      hemi.color.setHex(lerpCol(lerpCol(0x88bef0, 0x90a8cc, duskF), 0x263f6e, nightF));
+      hemi.groundColor.setHex(lerpCol(lerpCol(0x8a6d50, 0x6b5039, duskF), 0x171b26, nightF));
+      hemi.intensity = THREE.MathUtils.lerp(0.82, 0.34, nightF);
+
+      rim.color.setHex(lerpCol(lerpCol(0xa6ccf0, 0x9fc2e6, duskF), 0x4569a8, nightF));
+      rim.intensity = THREE.MathUtils.lerp(0.52, 0.42, nightF);
+      scene.environmentIntensity = THREE.MathUtils.lerp(0.55, 0.16, nightF);
+      renderer.toneMappingExposure = THREE.MathUtils.lerp(0.96, 1.08, nightF);
+      starfieldMat.opacity = THREE.MathUtils.smoothstep(nightF, 0.45, 0.95);
+      starfield.visible = starfieldMat.opacity > 0.01;
+
+      return {
+        spireGlow: THREE.MathUtils.smoothstep(nightF, 0.18, 0.88),
+        winBoost: THREE.MathUtils.smoothstep(nightF, 0.12, 0.85) * 1.55 + duskF * 0.35,
+        uplight: THREE.MathUtils.smoothstep(nightF, 0.2, 0.9),
+        cityGlow: THREE.MathUtils.smoothstep(nightF, 0.28, 0.92),
+        nightF,
+        duskF,
+      };
+    }
+
+    // Rain & Drifting Mist Particle Systems + Bird Flocking
+    const RAIN_N = 640;
+    const rainData = Array.from({ length: RAIN_N }, (_, i) => ({
+      x: ((Math.sin(i * 12.98 + 0.5) * 43758.5) % 1 + 1) % 1 * 96 - 48,
+      y: ((Math.sin(i * 78.23 + 1.7) * 24634.6) % 1 + 1) % 1 * 56,
+      z: ((Math.sin(i * 39.42 + 3.1) * 19283.4) % 1 + 1) % 1 * 96 - 48,
+      spd: 0.85 + (i % 7) * 0.05,
+      len: 1.0 + (i % 5) * 0.12,
+    }));
+    const rainPos = new Float32Array(RAIN_N * 6);
+    const rainGeo = new THREE.BufferGeometry();
+    const rainAttr = new THREE.BufferAttribute(rainPos, 3); rainGeo.setAttribute('position', rainAttr);
+    const rainMat = new THREE.LineBasicMaterial({ color: 0xc8defa, transparent: true, opacity: 0, depthWrite: false });
+    const rainLines = new THREE.LineSegments(rainGeo, rainMat); rainLines.frustumCulled = false; scene.add(rainLines);
+
+    const FOG_N = 96;
+    const fogData = Array.from({ length: FOG_N }, (_, i) => {
+      const a = (i / FOG_N) * Math.PI * 5.4, r = 10 + ((i * 19) % 36);
+      return { x: Math.cos(a) * r, y: 1.8 + ((i * 13) % 24), z: Math.sin(a) * r, p: i * 0.73, s: 0.6 + (i % 6) * 0.1 };
+    });
+    const fogPos = new Float32Array(FOG_N * 3);
+    const fogGeo = new THREE.BufferGeometry();
+    const fogAttr = new THREE.BufferAttribute(fogPos, 3); fogGeo.setAttribute('position', fogAttr);
+    const mistC = document.createElement('canvas'); mistC.width = 128; mistC.height = 128;
+    const mg = mistC.getContext('2d');
+    const gr = mg.createRadialGradient(64, 64, 6, 64, 64, 62);
+    gr.addColorStop(0, 'rgba(255,255,255,0.72)'); gr.addColorStop(0.5, 'rgba(235,245,255,0.28)'); gr.addColorStop(1, 'rgba(220,235,245,0)');
+    mg.fillStyle = gr; mg.fillRect(0, 0, 128, 128);
+    const fogMat = new THREE.PointsMaterial({ color: 0xdce6f5, map: new THREE.CanvasTexture(mistC), size: 16, transparent: true, opacity: 0, depthWrite: false });
+    const fogPts = new THREE.Points(fogGeo, fogMat); fogPts.frustumCulled = false; scene.add(fogPts);
+
+    const BIRD_N = 36;
+    const birds = Array.from({ length: BIRD_N }, (_, i) => {
+      const hi = i < 23 ? 0 : 1;
+      const a = (hi === 0 ? 0.35 : 3.45) + ((i % 9) - 4) * 0.14 + i * 0.09;
+      const r = hi === 0 ? 15.5 + ((i * 13) % 15) : 17 + ((i * 17) % 11);
+      const y = hi === 0 ? 23 + ((i * 7) % 19) : 7.5 + ((i * 5) % 8);
+      const dir = hi === 0 ? 1 : -1, spd = hi === 0 ? 8.5 : 6.5;
+      return { x: Math.cos(a) * r, y, z: Math.sin(a) * r, vx: -Math.sin(a) * spd * dir, vy: 0, vz: Math.cos(a) * spd * dir, r, by: y, dir, ph: i * 0.85, ws: hi === 0 ? 10 : 12, bank: dir * 0.22, sc: hi === 0 ? 0.9 : 0.75, hi };
+    });
+    const mBird = new THREE.MeshStandardMaterial({ color: 0x3b4048, roughness: 0.72, side: THREE.DoubleSide });
+    const bBodyG = new THREE.ConeGeometry(0.11, 0.56, 5); bBodyG.rotateX(Math.PI / 2);
+    const bWingLG = new THREE.BoxGeometry(0.58, 0.03, 0.22); bWingLG.translate(-0.29, 0, 0);
+    const bWingRG = new THREE.BoxGeometry(0.58, 0.03, 0.22); bWingRG.translate(0.29, 0, 0);
+    const birdB = new THREE.InstancedMesh(bBodyG, mBird, BIRD_N);
+    const birdWL = new THREE.InstancedMesh(bWingLG, mBird, BIRD_N);
+    const birdWR = new THREE.InstancedMesh(bWingRG, mBird, BIRD_N);
+    birdB.frustumCulled = false; birdWL.frustumCulled = false; birdWR.frustumCulled = false;
+    scene.add(birdB, birdWL, birdWR);
+
+    let weatherMode = 'auto', birdsEnabled = true, focusMode = false, labelsVisible = true, selectedFeatureId = null;
+    const weatherSel = document.getElementById('weather-select'), birdsBtn = document.getElementById('birds-btn');
+    const focusBtn = document.getElementById('focus-btn'), labelsBtn = document.getElementById('labels-btn');
+    weatherSel.onchange = (e) => { weatherMode = e.target.value; };
+    birdsBtn.onclick = () => { birdsEnabled = !birdsEnabled; birdsBtn.classList.toggle('active', birdsEnabled); birdsBtn.setAttribute('aria-pressed', String(birdsEnabled)); };
+
+    const FEATURES = [
+      { id: 'nativity-portal', label: 'Nativity Portals', era: 'Phase 1 · 1894–1930', reveal: 1900, arch: 'Antoni Gaudí', dims: '3 Portals · East Transept · 4 Bell Towers', sum: 'Gaudí completed this exuberant east facade first so Barcelona could witness his organic language of carved stone.', trivia: ['Crowned a UNESCO World Heritage Site in 2005 for sections built under Gaudí.', 'Three portals embody Faith, Hope, and Charity framed by carved fauna.', 'Survived the 1936 workshop fire intact, preserving Gaudí’s sculptural proportions.'], anchor: [8.6, 5.4, 2.4], r: 4.4, cam: [25.5, 9.2, 11.5], tgt: [8.0, 6.2, 0.2] },
+      { id: 'apse-chapels', label: 'Neo-Gothic Apse', era: 'Phase 1 · 1885–1893', reveal: 1892, arch: 'Francisco del Villar & Antoni Gaudí', dims: '7 Polygonal Chapels · North Head', sum: 'Rising above the 1882 crypt, the apse bridges Neo-Gothic buttresses with Gaudí’s naturalistic pinnacles.', trivia: ['Seven radiating chapels celebrate the Seven Joys and Sorrows of Saint Joseph.', 'Gaudí sculpted gargoyles as Catalan frogs, snails, and owls.'], anchor: [4.8, 8.6, -12.4], r: 4.6, cam: [14.5, 13.0, -29.5], tgt: [0, 6.4, -8.5] },
+      { id: 'passion-portal', label: 'Passion Portals', era: 'Phase 2 · 1954–1976', reveal: 1962, arch: 'Puig Boada & Josep Maria Subirachs', dims: '6 Bone Pillars · West Transept · 4 Towers', sum: 'Inspired by Gaudí’s stark 1911 sketches, six tilted bone-like columns frame angular Passion sculptures.', trivia: ['Features Subirachs’ 4×4 Magic Square whose rows and diagonals sum to 33.', 'Bare sinewy columns mimic human rib bones and tendons.'], anchor: [-9.2, 5.8, -2.0], r: 4.5, cam: [-26.5, 9.6, 10.5], tgt: [-8.2, 6.6, 0] },
+      { id: 'nave-vaults', label: 'Hyperboloid Vaults', era: 'Phase 3 · 1978–2010', reveal: 1995, arch: 'Jordi Bonet i Armengol', dims: '45 m Canopy · Double-Twist Columns', sum: 'A sunlit stone forest of branching columns supporting perforated hyperboloid vaults and stained glass.', trivia: ['Columns rotate smoothly from polygonal bases into round canopies.', 'Cool dawn blues contrast with fiery sunset reds across the nave glass.'], anchor: [-4.6, 14.5, 4.2], r: 4.8, cam: [-21.0, 17.5, 21.5], tgt: [-1.5, 11.2, 0.5] },
+      { id: 'evangelist-towers', label: 'Evangelist Towers', era: 'Phase 4 · 2016–2023', reveal: 2023, arch: 'Jordi Faulí & Medina-Campeny', dims: '4 Towers · 135 m · Tetramorph Finals', sum: 'Four surrounding central spires topped with illuminated winged symbols of the four Evangelists.', trivia: ['Completed in November 2023 with angel, lion, ox, and eagle sculptures.', 'Constructed using post-tensioned stone panels lifted by tower cranes.'], anchor: [4.2, 31.0, 3.8], r: 3.8, cam: [19.5, 34.5, 18.5], tgt: [2.2, 29.5, 1.8] },
+      { id: 'virgin-mary-star', label: 'Virgin Mary Star', era: 'Phase 4 · 2016–2021', reveal: 2021, arch: 'Jordi Faulí i Oller', dims: '138 m · 12-Pointed Illuminated Star', sum: 'The second-tallest spire culminates in a crystalline 5.5-ton illuminated twelve-pointed star.', trivia: ['First lit on December 8, 2021 as the first completed central tower.', 'Channels light through an 800-square-meter oculus directly onto the altar.'], anchor: [-1.2, 36.2, -6.2], r: 3.8, cam: [18.5, 40.5, -24.0], tgt: [0, 33.8, -6.0] },
+      { id: 'jesus-tower', label: 'Tower of Jesus Christ', era: 'Phase 4 · 2018–2026', reveal: 2024, arch: 'Jordi Faulí i Oller', dims: '172.5 m · Four-Armed Glazed Cross', sum: 'Reaching 172.5 meters, the central spire crowns Barcelona’s skyline with a four-armed cross.', trivia: ['Capped 5 meters below Montjuïc so human work would not surpass God’s hill.', 'Completed in 2026 for the centenary of Gaudí’s passing.'], anchor: [0, 44.8, 0], r: 4.2, cam: [18.5, 45.5, 21.0], tgt: [0, 40.0, 0] },
+      { id: 'glory-facade', label: 'Glory Facade', era: 'Phase 4 · 2002–2026+', reveal: 2025, arch: 'Bonet, Subirachs & Faulí', dims: 'South Entrance · 7 Columns · Bronze Doors', sum: 'The grand main entrance featuring monumental stairs, solar rays, and bronze portals.', trivia: ['Two-ton bronze doors bear the Lord’s Prayer in 50 languages.', 'Seven monumental columns symbolize the Seven Gifts of the Holy Spirit.'], anchor: [0, 5.8, 13.6], r: 4.8, cam: [12.5, 11.0, 34.0], tgt: [0, 6.2, 10.8] },
+    ];
+
+    const raycaster = new THREE.Raycaster(); raycaster.layers.set(1);
+    const pNdc = new THREE.Vector2(), hitBoxes = [], pinEls = new Map();
+    const hitMat = new THREE.MeshBasicMaterial({ visible: false });
+    const labelsLayer = document.getElementById('labels-layer');
+    FEATURES.forEach((f) => {
+      const hm = new THREE.Mesh(new THREE.SphereGeometry(f.r, 8, 8), hitMat);
+      hm.position.set(...f.anchor); hm.userData.fid = f.id; hm.userData.rev = f.reveal; hm.layers.set(1);
+      scene.add(hm); hitBoxes.push(hm);
+      const b = document.createElement('button');
+      b.type = 'button'; b.className = 'pin-3d'; b.setAttribute('aria-label', 'Inspect ' + f.label);
+      b.innerHTML = '<span class="pin-3d-tag"><span class="pin-3d-dot"></span><span>' + f.label + '</span></span><span class="pin-3d-stem"></span>';
+      b.onclick = () => selectFeature(f.id);
+      labelsLayer.appendChild(b); pinEls.set(f.id, b);
+    });
+
+    const cuCard = document.getElementById('closeup-card');
+    function selectFeature(id) {
+      const f = FEATURES.find((x) => x.id === id);
+      if (!f) return;
+      isPlaying = false; playBtn.textContent = 'Play'; autoOrbit = false; orbitBtn.classList.remove('active');
+      focusMode = true; labelsVisible = true; selectedFeatureId = f.id;
+      focusBtn.classList.add('active'); focusBtn.setAttribute('aria-pressed', 'true');
+      labelsBtn.classList.add('active'); labelsBtn.setAttribute('aria-pressed', 'true');
+      if (year < f.reveal) year = f.reveal;
+      camGoal = { pos: new THREE.Vector3(...f.cam), tgt: new THREE.Vector3(...f.tgt) };
+      document.getElementById('cu-era').textContent = f.era;
+      document.getElementById('cu-title').textContent = f.label;
+      document.getElementById('cu-arch').textContent = f.arch;
+      document.getElementById('cu-dims').textContent = f.dims;
+      document.getElementById('cu-summary').textContent = f.sum;
+      document.getElementById('cu-trivia').innerHTML = f.trivia.map((t, i) => '<li><span class="mono" style="color:var(--accent);font-weight:600">0' + (i + 1) + '.</span><span>' + t + '</span></li>').join('');
+      cuCard.classList.remove('hidden');
+      pinEls.forEach((el, pid) => el.classList.toggle('active', pid === f.id));
+    }
+    function closeFeature() {
+      selectedFeatureId = null; cuCard.classList.add('hidden');
+      pinEls.forEach((el) => el.classList.remove('active'));
+      const az = THREE.MathUtils.degToRad(42), el = THREE.MathUtils.degToRad(16), d = 106;
+      camGoal = { pos: new THREE.Vector3(Math.sin(az) * d * Math.cos(el), TARGET.y + d * Math.sin(el), Math.cos(az) * d * Math.cos(el)), tgt: TARGET.clone() };
+    }
+    document.getElementById('cu-close-btn').onclick = closeFeature;
+    document.getElementById('cu-prev-btn').onclick = () => {
+      const idx = FEATURES.findIndex((x) => x.id === selectedFeatureId);
+      selectFeature(FEATURES[(idx - 1 + FEATURES.length) % FEATURES.length].id);
+    };
+    document.getElementById('cu-next-btn').onclick = () => {
+      const idx = FEATURES.findIndex((x) => x.id === selectedFeatureId);
+      selectFeature(FEATURES[(idx + 1) % FEATURES.length].id);
+    };
+    focusBtn.onclick = () => {
+      focusMode = !focusMode; focusBtn.classList.toggle('active', focusMode); focusBtn.setAttribute('aria-pressed', String(focusMode));
+      if (focusMode) { if (!selectedFeatureId) selectFeature((FEATURES.find((x) => year >= x.reveal - 2) || FEATURES[0]).id); }
+      else closeFeature();
+    };
+    labelsBtn.onclick = () => { labelsVisible = !labelsVisible; labelsBtn.classList.toggle('active', labelsVisible); labelsBtn.setAttribute('aria-pressed', String(labelsVisible)); };
+
+    let pdX = 0, pdY = 0;
+    renderer.domElement.addEventListener('pointerdown', (e) => { pdX = e.clientX; pdY = e.clientY; });
+    renderer.domElement.addEventListener('pointerup', (e) => {
+      if (Math.hypot(e.clientX - pdX, e.clientY - pdY) > 6) return;
+      pNdc.x = (e.clientX / window.innerWidth) * 2 - 1; pNdc.y = -(e.clientY / window.innerHeight) * 2 + 1;
+      raycaster.setFromCamera(pNdc, camera);
+      const hits = raycaster.intersectObjects(hitBoxes, false);
+      for (const h of hits) {
+        if (focusMode || year >= h.object.userData.rev - 2) { selectFeature(h.object.userData.fid); break; }
+      }
+    });
+
+    todRow.querySelectorAll('[data-tod]').forEach((b) => {
+      b.onclick = () => {
+        cycleTod = false; todCycleBtn.classList.remove('active'); todCycleBtn.setAttribute('aria-pressed', 'false');
+        targetTod = TOD_PRESETS[b.dataset.tod];
+        todRow.querySelectorAll('[data-tod]').forEach((x) => x.classList.toggle('active', x === b));
+      };
+    });
+    todCycleBtn.onclick = () => {
+      cycleTod = !cycleTod;
+      todCycleBtn.classList.toggle('active', cycleTod);
+      todCycleBtn.setAttribute('aria-pressed', String(cycleTod));
+      if (cycleTod) todRow.querySelectorAll('[data-tod]').forEach((x) => x.classList.remove('active'));
+    };
+
+    let year = 1926, isPlaying = false, autoOrbit = false, camGoal = null;
+    const yearDisp = document.getElementById('year-display'), sliderYear = document.getElementById('slider-year');
+    const slider = document.getElementById('year-slider'), pctBuilt = document.getElementById('pct-built');
+    const archName = document.getElementById('architect-name'), eraTitle = document.getElementById('era-title'), eraSummary = document.getElementById('era-summary');
+    const phasesList = document.getElementById('phases-list'), milestonesRow = document.getElementById('milestones-row');
+    const playBtn = document.getElementById('play-btn'), orbitBtn = document.getElementById('orbit-btn');
+
+    function updateSceneAndHud(elapsed, atmos) {
+      const p = getProgress(year);
+      const setGrp = (grp, pl, val) => {
+        if (val <= 0.002) { grp.visible = false; pl.constant = -5; }
+        else { grp.visible = true; pl.constant = 200; }
+      };
+      setGrp(gCrypt, clips.crypt, p.crypt);
+      setGrp(gApse, clips.apse, p.apse);
+      setGrp(gNatB, clips.natBody, p.nativityBody);
+      setGrp(gNatT, clips.natTow, p.nativityTowers);
+      setGrp(gPasB, clips.pasBody, p.passionBody);
+      setGrp(gPasT, clips.pasTow, p.passionTowers);
+      setGrp(gNaveW, clips.naveW, p.naveWalls);
+      setGrp(gNaveV, clips.naveV, p.naveVaults);
+      setGrp(gEvan, clips.evan, p.evangelistTowers);
+      setGrp(gMary, clips.mary, p.virginMaryTower);
+      setGrp(gJesus, clips.jesus, p.jesusTower);
+      setGrp(gGlory, clips.glory, p.gloryFacade);
+
+      for (let i = 0; i < stackParts.length; i++) {
+        const pt = stackParts[i];
+        const tf = computeStackTransform(p[pt.phase], pt.start, pt.end, pt.dropHeight, pt.mode);
+        if (!tf.visible) pt.obj.visible = false;
+        else {
+          pt.obj.visible = true;
+          const growShift = pt.mode === 'growY' ? -(1 - tf.scaleY) * pt.halfHeight : 0;
+          pt.obj.position.y = pt.baseY + tf.offsetY + growShift;
+          pt.obj.scale.set(pt.sx * tf.scaleXY, pt.sy * tf.scaleY, pt.sz * tf.scaleXY);
+        }
+      }
+
+      mGlass.emissiveIntensity = 0.16 + p.stainedGlassGlow * (2.15 + atmos.winBoost);
+      intLights.forEach((l) => { l.intensity = p.stainedGlassGlow * (12 + atmos.uplight * 14); });
+      const starGlow = THREE.MathUtils.smoothstep(p.virginMaryTower, 0.88, 1);
+      mStar.emissiveIntensity = 0.3 + starGlow * (2.2 + atmos.spireGlow * 1.5);
+      starLight.intensity = starGlow * (12 + atmos.uplight * 18);
+      starMesh.rotation.y = elapsed * 0.25;
+
+      mGoldNat.emissiveIntensity = atmos.spireGlow * 1.15;
+      mWhiteNat.emissiveIntensity = atmos.spireGlow * 0.65;
+      mFinPas.emissiveIntensity = atmos.spireGlow * 0.72;
+      mFinEvan.emissiveIntensity = atmos.spireGlow * 1.1;
+      mCross.emissiveIntensity = 0.55 + atmos.spireGlow * 1.85;
+      rNat.emissiveIntensity = p.nativityTowers * atmos.spireGlow * 0.85;
+      rPas.emissiveIntensity = p.passionTowers * atmos.spireGlow * 0.65;
+      rNave.emissiveIntensity = p.stainedGlassGlow * atmos.spireGlow * 0.6;
+      rEvan.emissiveIntensity = p.evangelistTowers * atmos.spireGlow * 0.92;
+      rMary.emissiveIntensity = p.virginMaryTower * atmos.spireGlow * 0.96;
+      rJesus.emissiveIntensity = p.jesusTower * atmos.spireGlow * 1.05;
+      rGlory.emissiveIntensity = p.gloryFacade * atmos.spireGlow * 0.85;
+      mEix.emissiveIntensity = atmos.cityGlow * 1.05;
+      mLampGlow.emissiveIntensity = 0.12 + atmos.duskF * 0.85 + atmos.nightF * 1.85;
+      upNat.intensity = Math.max(p.nativityBody * 0.6, p.nativityTowers) * atmos.uplight * 26;
+      upPas.intensity = Math.max(p.passionBody * 0.6, p.passionTowers) * atmos.uplight * 22;
+      upCen.intensity = Math.max(p.evangelistTowers, p.jesusTower) * atmos.uplight * 34;
+
+      craneNat.g.visible = p.nativityTowers > 0.02 && p.nativityTowers < 0.985;
+      craneNat.jib.rotation.y = Math.sin(elapsed * 0.45) * 0.85;
+      cranePas.g.visible = p.passionTowers > 0.02 && p.passionTowers < 0.985;
+      cranePas.jib.rotation.y = Math.cos(elapsed * 0.4) * 0.8;
+      craneCen.g.visible = p.evangelistTowers > 0.02 && p.jesusTower < 0.985;
+      craneCen.jib.rotation.y = elapsed * 0.35;
+
+      const label = Math.round(year) >= MAX_YEAR ? '2026+' : String(Math.round(year));
+      yearDisp.textContent = label; sliderYear.textContent = label;
+      slider.value = String(year);
+      const sPct = ((year - MIN_YEAR) / (MAX_YEAR - MIN_YEAR)) * 100;
+      slider.style.backgroundImage = `linear-gradient(to right, #e0a458 0%, #e0a458 ${sPct}%, rgba(255,245,225,0.18) ${sPct}%, rgba(255,245,225,0.18) 100%)`;
+      slider.style.backgroundSize = '100% 6px'; slider.style.backgroundRepeat = 'no-repeat'; slider.style.backgroundPosition = 'center';
+      pctBuilt.textContent = `${p.pct}% Built`;
+
+      const seg = getSegmentForYear(year);
+      archName.textContent = seg.architect; eraTitle.textContent = seg.title; eraSummary.textContent = seg.summary;
+      if (narrationEnabled && isPlaying) speakSegmentIfNeeded(year, false);
+
+      phasesList.innerHTML = PHASES.map((ph) => `
+        <button class="phase-btn ${seg.phase === ph.id ? 'active' : ''}" data-end="${ph.endYear}">
+          <span class="phase-left"><span class="swatch" style="background:${ph.color}"></span><span>${ph.label}</span></span>
+          <span class="mono" style="font-size:11px;color:#b9b1a3">${Math.round(p[ph.id] * 100)}%</span>
+        </button>`).join('');
+      phasesList.querySelectorAll('.phase-btn').forEach((b) => {
+        b.onclick = () => {
+          isPlaying = false; playBtn.textContent = 'Play';
+          year = Math.min(MAX_YEAR, Number(b.dataset.end));
+          if (narrationEnabled) speakSegmentIfNeeded(year, true);
+        };
+      });
+      milestonesRow.querySelectorAll('.era-btn').forEach((b) => {
+        b.classList.toggle('active', Math.abs(year - Number(b.dataset.year)) < 1.5);
+      });
+    }
+
+    MILESTONES.forEach((m) => {
+      const btn = document.createElement('button');
+      btn.className = 'era-btn'; btn.type = 'button'; btn.textContent = m.label; btn.dataset.year = String(m.year);
+      btn.onclick = () => {
+        isPlaying = false; playBtn.textContent = 'Play'; year = m.year; selectedFeatureId = null; cuCard.classList.add('hidden');
+        const [az, el, d] = m.cam.map((v, idx) => idx < 2 ? THREE.MathUtils.degToRad(v) : v);
+        camGoal = { pos: new THREE.Vector3(Math.sin(az) * d * Math.cos(el), TARGET.y + d * Math.sin(el), Math.cos(az) * d * Math.cos(el)), tgt: TARGET.clone() };
+        if (narrationEnabled) speakSegmentIfNeeded(year, true);
+      };
+      milestonesRow.appendChild(btn);
+    });
+
+    narrateBtn.onclick = () => {
+      narrationEnabled = !narrationEnabled;
+      narrationBtnState();
+    };
+    function narrationBtnState() {
+      narrateBtn.classList.toggle('active', narrationEnabled);
+      narrateBtn.setAttribute('aria-pressed', String(narrationEnabled));
+      narrateBtn.setAttribute('aria-label', narrationEnabled ? 'Mute voice narration' : 'Enable voice narration');
+      if (narrationEnabled) speakSegmentIfNeeded(year, true);
+      else { stopNarrationSpeech(); captionEl.classList.add('hidden'); }
+    }
+
+    playBtn.onclick = () => {
+      if (!isPlaying && year >= MAX_YEAR - 0.1) year = MIN_YEAR;
+      isPlaying = !isPlaying; playBtn.textContent = isPlaying ? 'Pause' : 'Play';
+      if (isPlaying && narrationEnabled) speakSegmentIfNeeded(year, true);
+      else if (!isPlaying) stopNarrationSpeech();
+    };
+    slider.oninput = (e) => {
+      isPlaying = false; playBtn.textContent = 'Play'; year = parseFloat(e.target.value);
+      if (narrationEnabled) speakSegmentIfNeeded(year, false);
+    };
+    orbitBtn.onclick = () => { autoOrbit = !autoOrbit; orbitBtn.classList.toggle('active', autoOrbit); orbitBtn.setAttribute('aria-pressed', String(autoOrbit)); };
+    document.getElementById('reset-btn').onclick = closeFeature;
+    document.getElementById('info-collapse-btn').onclick = () => document.getElementById('info-body').classList.toggle('hidden');
+    document.getElementById('dock-toggle-btn').onclick = (e) => {
+      const d = document.getElementById('dock-panel');
+      d.classList.toggle('hidden');
+      e.target.textContent = d.classList.contains('hidden') ? '▴ Show Controls' : '▾ Hide Controls';
+    };
+    window.addEventListener('keydown', (e) => {
+      if (e.target && (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA')) return;
+      if (e.key === 'n' || e.key === 'N') narrateBtn.click();
+    });
+    controls.addEventListener('start', () => { camGoal = null; });
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight; camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    let lastT = performance.now(), elapsed = 0;
+    const _off = new THREE.Vector3(), _sph = new THREE.Spherical(), _bDum = new THREE.Object3D(), _pv = new THREE.Vector3();
+    function animate() {
+      requestAnimationFrame(animate);
+      const now = performance.now(), dt = Math.min(0.1, (now - lastT) / 1000); lastT = now; elapsed += dt;
+      if (isPlaying) {
+        year += dt * 6.5;
+        if (year >= MAX_YEAR) { year = MAX_YEAR; isPlaying = false; playBtn.textContent = 'Play'; }
+      }
+      if (cycleTod) {
+        currentTod = (currentTod + dt * 0.055) % 1;
+        targetTod = currentTod;
+      } else {
+        let delta = targetTod - currentTod;
+        if (delta > 0.5) delta -= 1;
+        if (delta < -0.5) delta += 1;
+        currentTod = (currentTod + delta * (1 - Math.exp(-5 * dt)) + 1) % 1;
+      }
+      if (camGoal) {
+        const a = 1 - Math.exp(-6.0 * dt);
+        controls.target.lerp(camGoal.tgt, a);
+        const curR = Math.hypot(camera.position.x, camera.position.z);
+        const tgtR = Math.hypot(camGoal.pos.x, camGoal.pos.z);
+        if (curR > 1 && tgtR > 1) {
+          const curTheta = Math.atan2(camera.position.x, camera.position.z);
+          const tgtTheta = Math.atan2(camGoal.pos.x, camGoal.pos.z);
+          let dTheta = tgtTheta - curTheta;
+          while (dTheta > Math.PI) dTheta -= Math.PI * 2;
+          while (dTheta <= -Math.PI) dTheta += Math.PI * 2;
+          const th = curTheta + dTheta * a;
+          const yn = THREE.MathUtils.lerp(camera.position.y, camGoal.pos.y, a);
+          const br = THREE.MathUtils.lerp(curR, tgtR, a);
+          const sf = yn < 38 && Math.abs(dTheta) > 0.25 ? Math.min(1, (Math.abs(dTheta) - 0.25) / 1.0) : 0;
+          const minR = 34.5 * sf;
+          const nr = br < minR ? THREE.MathUtils.lerp(br, minR, Math.min(1, a * 1.85)) : br;
+          camera.position.set(Math.sin(th) * nr, yn, Math.cos(th) * nr);
+        } else {
+          camera.position.lerp(camGoal.pos, a);
+        }
+        if (camera.position.distanceTo(camGoal.pos) < 0.25 && controls.target.distanceTo(camGoal.tgt) < 0.2) {
+          camera.position.copy(camGoal.pos); controls.target.copy(camGoal.tgt); camGoal = null;
+        }
+      } else if (autoOrbit) {
+        _off.copy(camera.position).sub(controls.target); _sph.setFromVector3(_off);
+        _sph.theta += dt * 0.16; _off.setFromSpherical(_sph);
+        camera.position.copy(controls.target).add(_off);
+      }
+      const atmos = applyTimeOfDay(currentTod);
+      updateSceneAndHud(elapsed, atmos);
+      for (const f of FEATURES) {
+        const el = pinEls.get(f.id);
+        if (!el) continue;
+        const ok = labelsVisible && (focusMode || year >= f.reveal - 2 || selectedFeatureId === f.id);
+        if (!ok) { el.style.opacity = '0'; el.style.pointerEvents = 'none'; continue; }
+        _pv.set(...f.anchor).project(camera);
+        if (_pv.z > 1 || _pv.z < -1) { el.style.opacity = '0'; el.style.pointerEvents = 'none'; continue; }
+        const sx = ((_pv.x + 1) * 0.5) * window.innerWidth, sy = ((-_pv.y + 1) * 0.5) * window.innerHeight;
+        if (sx < 40 || sx > window.innerWidth - 40 || sy < 24 || sy > window.innerHeight - 120) { el.style.opacity = '0'; el.style.pointerEvents = 'none'; continue; }
+        el.style.transform = `translate3d(${Math.round(sx)}px,${Math.round(sy)}px,0)`;
+        el.style.opacity = (year >= f.reveal - 2 || selectedFeatureId === f.id) ? '1' : '0.58';
+        el.style.pointerEvents = 'auto';
+      }
+
+      // Step dusk/night rain & mist particles + bird flocking
+      let rOp = 0, fOp = 0;
+      if (weatherMode === 'auto') {
+        fOp = Math.max(THREE.MathUtils.smoothstep(atmos.duskF, 0.08, 0.45) * 0.42, THREE.MathUtils.smoothstep(atmos.nightF, 0.08, 0.4) * 0.34);
+        rOp = Math.max(THREE.MathUtils.smoothstep(atmos.nightF, 0.25, 0.9) * 0.43, THREE.MathUtils.smoothstep(atmos.duskF, 0.45, 0.95) * 0.15);
+      } else if (weatherMode === 'rain') {
+        rOp = 0.32 + (atmos.duskF * 0.85 + atmos.nightF) * 0.24; fOp = 0.2;
+      } else if (weatherMode === 'fog') {
+        fOp = 0.45;
+      }
+      rainLines.visible = rOp > 0.01;
+      if (rainLines.visible) {
+        rainMat.opacity = rOp;
+        rainMat.color.setHex(atmos.nightF > 0.4 ? 0x8db0df : 0xffe0bc);
+        for (let i = 0; i < RAIN_N; i++) {
+          const d = rainData[i];
+          d.x -= 2.6 * dt; d.z += 1.2 * dt; d.y -= 25 * d.spd * dt;
+          if (d.y < 0) d.y += 56;
+          if (d.x < -48) d.x += 96;
+          if (d.z > 48) d.z -= 96;
+          const k = i * 6;
+          rainPos[k] = d.x; rainPos[k + 1] = d.y; rainPos[k + 2] = d.z;
+          rainPos[k + 3] = d.x + 0.1 * d.len; rainPos[k + 4] = d.y + d.len; rainPos[k + 5] = d.z - 0.05 * d.len;
+        }
+        rainAttr.needsUpdate = true;
+      }
+      fogPts.visible = fOp > 0.01;
+      if (fogPts.visible) {
+        fogMat.opacity = fOp;
+        for (let i = 0; i < FOG_N; i++) {
+          const w = fogData[i];
+          w.x -= 1.4 * w.s * dt; w.z += 0.65 * w.s * dt;
+          if (w.x < -56) w.x += 112;
+          if (w.z > 56) w.z -= 112;
+          fogPos[i * 3] = w.x; fogPos[i * 3 + 1] = w.y + Math.sin(elapsed * 0.4 + w.p) * 0.45; fogPos[i * 3 + 2] = w.z;
+        }
+        fogAttr.needsUpdate = true;
+      }
+      birdB.visible = birdsEnabled; birdWL.visible = birdsEnabled; birdWR.visible = birdsEnabled;
+      if (birdsEnabled) {
+        for (let i = 0; i < BIRD_N; i++) {
+          const b = birds[i];
+          const rH = Math.hypot(b.x, b.z) || 0.01, rx = b.x / rH, rz = b.z / rH;
+          b.vx += (-rz * b.dir * 3.8 + rx * (b.r - rH) * 0.7) * dt;
+          b.vz += (rx * b.dir * 3.8 + rz * (b.r - rH) * 0.7) * dt;
+          b.vy += ((b.by + Math.sin(elapsed * 0.55 + b.ph * 0.25) * 2.5) - b.y) * dt;
+          const sp = Math.hypot(b.vx, b.vy, b.vz) || 1, tgt = b.hi === 0 ? 8.5 : 6.5;
+          b.vx = (b.vx / sp) * tgt; b.vy = (b.vy / sp) * tgt; b.vz = (b.vz / sp) * tgt;
+          b.x += b.vx * dt; b.y = Math.max(4.5, Math.min(48, b.y + b.vy * dt)); b.z += b.vz * dt;
+          b.ph += b.ws * dt;
+          const yaw = Math.atan2(b.vx, b.vz), flap = Math.sin(b.ph) * 0.68;
+          _bDum.position.set(b.x, b.y, b.z); _bDum.scale.setScalar(b.sc);
+          _bDum.rotation.set(0, yaw, b.bank, 'YXZ'); _bDum.updateMatrix(); birdB.setMatrixAt(i, _bDum.matrix);
+          _bDum.rotation.set(0, yaw, b.bank + flap, 'YXZ'); _bDum.updateMatrix(); birdWL.setMatrixAt(i, _bDum.matrix);
+          _bDum.rotation.set(0, yaw, b.bank - flap, 'YXZ'); _bDum.updateMatrix(); birdWR.setMatrixAt(i, _bDum.matrix);
+        }
+        birdB.instanceMatrix.needsUpdate = true; birdWL.instanceMatrix.needsUpdate = true; birdWR.instanceMatrix.needsUpdate = true;
+      }
+
+      controls.update();
+      renderer.render(scene, camera);
+    }
+    animate();
+  </script>
+</body>
+</html>

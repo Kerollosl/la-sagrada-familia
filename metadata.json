@@ -1,0 +1,6 @@
+{
+  "name": "La Sagrada Família — 3D Construction Timeline",
+  "description": "Interactive Three.js architectural visualization animating the historical construction of Antoni Gaudí's La Sagrada Família in Barcelona from 1882 to 2026+.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
