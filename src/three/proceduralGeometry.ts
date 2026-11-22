@@ -4,6 +4,9 @@ import { PhaseProgressState } from '../data/timeline';
 import { AtmosphereState } from '../utils/timeOfDay';
 import { computeStackTransform, StackMode } from '../utils/stackingAnimation';
 import {
+  angularRelief, doves, eixampleRooftops, louvreRing, nativityGroup, organicRelief, pinnacleFruit, seatedApostle, stalactites, streetLife, towerInscription,
+} from './fineDetail';
+import {
   computeWeatherAtmosphere,
   createInitialFogWisps,
   createInitialRainDrops,
@@ -200,6 +203,10 @@ function buildHDTower(opts: {
   accentMat: THREE.Material;
   trencadisMat?: THREE.Material;
   angularFinial?: boolean;
+  /** Angle (radians, around the tower) at which a seated apostle statue faces outward. */
+  statueAngle?: number;
+  /** Seed for per-tower variation in inscriptions and ornament. */
+  seed?: number;
   geometries: THREE.BufferGeometry[];
   phase: StackPhaseKey;
   stagger?: number;
@@ -308,6 +315,14 @@ function buildHDTower(opts: {
     group.add(slot);
     opts.registerPart(opts.phase, slot, bStart, bEnd, 3.2, 'pop');
 
+    // Angled louvre slats fill each perforated band.
+    const slatGeo = louvreRing(r, Math.max(12, opts.radialSegments));
+    opts.geometries.push(slatGeo);
+    const slats = new THREE.Mesh(slatGeo, opts.stoneMat);
+    slats.position.y = yPos;
+    group.add(slats);
+    opts.registerPart(opts.phase, slats, Math.min(0.9, bStart + 0.03), Math.min(0.95, bEnd + 0.03), 3.2, 'pop');
+
     if (b % 2 === 0) {
       const collarGeo = new THREE.TorusGeometry(r * 1.055, 0.09, 6, opts.radialSegments);
       opts.geometries.push(collarGeo);
@@ -317,6 +332,30 @@ function buildHDTower(opts: {
       group.add(collar);
       opts.registerPart(opts.phase, collar, bStart, bEnd, 4.0, 'drop');
     }
+  }
+
+  // 4b. “Sanctus” inscription spiralling up the shaft in raised letters.
+  const seed = opts.seed ?? Math.round((opts.x * 13.1 + opts.z * 7.7) * 100);
+  const profile = { shaftHeight: opts.shaftHeight, baseRadius: opts.baseRadius, topRadius: opts.topRadius, shaftBase: 2.4 };
+  const inscription = towerInscription(profile, seed);
+  opts.geometries.push(inscription.geometry);
+  const letters = new THREE.Mesh(inscription.geometry, opts.finialMat);
+  letters.position.y = inscription.centre;
+  group.add(letters);
+  opts.registerPart(opts.phase, letters, st + 0.14, Math.min(0.88, st + 0.76), 0, 'growY', inscription.halfHeight);
+
+  // 4c. A seated apostle on a ledge partway up the tower.
+  if (opts.statueAngle !== undefined) {
+    const frac = 0.58;
+    const apostleGeo = seatedApostle(seed);
+    opts.geometries.push(apostleGeo);
+    const apostle = new THREE.Mesh(apostleGeo, opts.stoneMat);
+    const radius = THREE.MathUtils.lerp(opts.baseRadius, opts.topRadius, Math.pow(frac, 0.72)) * 0.96;
+    apostle.position.set(Math.cos(opts.statueAngle) * radius, 2.4 + frac * opts.shaftHeight + 0.42, Math.sin(opts.statueAngle) * radius);
+    apostle.rotation.y = -opts.statueAngle;
+    group.add(apostle);
+    const at = Math.min(0.8, st + 0.08 + frac * 0.56 + 0.1);
+    opts.registerPart(opts.phase, apostle, at, Math.min(0.9, at + 0.12), 4, 'drop');
   }
 
   // 5. Pinnacle Crown: stepped gallery gables, trencadís mosaic neck, orb/pyramid & starburst
@@ -381,6 +420,13 @@ function buildHDTower(opts: {
     orb.position.y = crownY + 1.72;
     group.add(orb);
     opts.registerPart(opts.phase, orb, Math.min(0.82, st + 0.74), Math.min(0.95, st + 0.88), 5.5, 'drop');
+
+    const fruitGeo = pinnacleFruit(opts.topRadius * 1.18, seed + 3);
+    opts.geometries.push(fruitGeo);
+    const fruit = new THREE.Mesh(fruitGeo, opts.finialMat);
+    fruit.position.y = crownY + 1.72;
+    group.add(fruit);
+    opts.registerPart(opts.phase, fruit, Math.min(0.86, st + 0.78), Math.min(0.97, st + 0.9), 2.5, 'pop');
 
     for (let s = 0; s < 8; s++) {
       const ang = (s / 8) * Math.PI * 2;
@@ -767,6 +813,22 @@ export function buildSagradaFamiliaScene(
   pentInst.computeBoundingSphere();
   envGroup.add(sidewalkInst, bldgInst, roofInst, courtInst, pentInst);
 
+  eixampleRooftops(envGroup, blockCoords, geometries, disposableMaterials);
+
+  // Visitors, benches and Eixample traffic for scale.
+  streetLife(envGroup, {
+    avoid: [
+      { x: [-10.8, 10.8], z: [-13.4, 13.8] },
+      { x: [14, 22.4], z: [-8.2, 8.2] },
+    ],
+    plazaHalf: plazaSize,
+    plazaChamfer: chamfer,
+    streetLines: [-82.5, -49.5, 49.5, 82.5],
+    extent: 110,
+    geometries,
+    materials: disposableMaterials,
+  });
+
   // Continuous sculpted Collserola Mountain Ridge + Distant Tibidabo Crest
   const ridgeGeo = createCollserolaRidgeGeometry();
   const tibidaboGeo = new THREE.ConeGeometry(2.2, 6.2, 6);
@@ -1119,6 +1181,42 @@ export function buildSagradaFamiliaScene(
   nativityBodyGroup.add(natCrestCap);
   registerPart('nativityBody', natCrestCap, 0.84, 1.0, 4.6, 'drop');
 
+  // Fine detail: dense organic sculpture over the portals and gables, drips, the Nativity group and doves.
+  const natRelief = organicRelief({
+    x: 8.45, outward: 1, z: [-3.9, 3.9], y: [0.6, 9.4], count: 2400, seed: 1894, material: mats.stoneNativityBody,
+    avoid: portalZ.map((pz) => ({ z: [pz - 0.62, pz + 0.62] as [number, number], y: [0, 4.3] as [number, number] })),
+    attract: [
+      ...portalZ.flatMap((pz) => [
+        { from: [pz - 0.95, 4.4] as [number, number], to: [pz, 5.5] as [number, number] },
+        { from: [pz + 0.95, 4.4] as [number, number], to: [pz, 5.5] as [number, number] },
+        { from: [pz - 0.7, 0.8] as [number, number], to: [pz - 0.7, 4.3] as [number, number] },
+        { from: [pz + 0.7, 0.8] as [number, number], to: [pz + 0.7, 4.3] as [number, number] },
+      ]),
+      { from: [-3.8, 8.7], to: [3.8, 8.7] },
+    ],
+  });
+  nativityBodyGroup.add(natRelief);
+  registerPart('nativityBody', natRelief, 0.55, 0.9, 1.5, 'pop');
+
+  const dripGeo = stalactites(8.62, 10.78, -3.7, 3.7, 46, 1926);
+  geometries.push(dripGeo);
+  const drips = new THREE.Mesh(dripGeo, mats.stoneNativityBody);
+  nativityBodyGroup.add(drips);
+  registerPart('nativityBody', drips, 0.7, 0.86, 2, 'drop');
+
+  const holyFamilyGeo = nativityGroup();
+  geometries.push(holyFamilyGeo);
+  const holyFamily = new THREE.Mesh(holyFamilyGeo, mats.stoneNativityBody);
+  holyFamily.position.set(8.82, 4.62, 0);
+  nativityBodyGroup.add(holyFamily);
+  registerPart('nativityBody', holyFamily, 0.6, 0.78, 2, 'pop');
+
+  const doveGeo = doves(new THREE.Vector3(8.35, 13.2, 0), 14, 7);
+  geometries.push(doveGeo);
+  const doveFlock = new THREE.Mesh(doveGeo, mats.finialWhiteCeramic);
+  nativityBodyGroup.add(doveFlock);
+  registerPart('nativityBody', doveFlock, 0.9, 1, 1.5, 'pop');
+
   addShadowProps(nativityBodyGroup);
   root.add(nativityBodyGroup);
 
@@ -1144,6 +1242,7 @@ export function buildSagradaFamiliaScene(
       accentMat: mats.finialWhiteCeramic,
       trencadisMat: mats.trencadisNativity,
       angularFinial: false,
+      statueAngle: 0,
       geometries,
       phase: 'nativityTowers',
       stagger: natStaggers[i],
@@ -1257,6 +1356,15 @@ export function buildSagradaFamiliaScene(
   passionPediment.position.set(-8.3, 12.2, 0);
   passionBodyGroup.add(passionPediment);
   registerPart('passionBody', passionPediment, 0.84, 1.0, 6.0, 'drop');
+  // Fine detail: angular, Subirachs-style figures across the Passion façade.
+  const passionRelief = angularRelief({
+    x: -8.25, outward: -1, z: [-3.7, 3.7], y: [4.6, 11.2], count: 280, seed: 1954, material: mats.stonePassionBody,
+    avoid: [{ z: [-1.2, 1.2], y: [0, 4.6] }],
+    attract: [{ from: [-3.6, 5.2], to: [3.6, 5.2] }, { from: [-3.6, 8.6], to: [3.6, 8.6] }],
+  });
+  passionBodyGroup.add(passionRelief);
+  registerPart('passionBody', passionRelief, 0.55, 0.9, 1.5, 'pop');
+
   addShadowProps(passionBodyGroup);
   root.add(passionBodyGroup);
 
@@ -1280,6 +1388,7 @@ export function buildSagradaFamiliaScene(
       finialMat: mats.finialPassion,
       accentMat: mats.finialPassion,
       angularFinial: true,
+      statueAngle: Math.PI,
       geometries,
       phase: 'passionTowers',
       stagger: passionStaggers[i],
