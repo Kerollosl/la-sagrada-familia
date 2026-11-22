@@ -35,7 +35,9 @@ type StackPhaseKey =
 interface StackPart {
   phase: StackPhaseKey;
   obj: THREE.Object3D;
+  baseX: number;
   baseY: number;
+  baseZ: number;
   baseScaleX: number;
   baseScaleY: number;
   baseScaleZ: number;
@@ -575,7 +577,9 @@ export function buildSagradaFamiliaScene(
     stackParts.push({
       phase,
       obj,
+      baseX: obj.position.x,
       baseY: obj.position.y,
+      baseZ: obj.position.z,
       baseScaleX: obj.scale.x,
       baseScaleY: obj.scale.y,
       baseScaleZ: obj.scale.z,
@@ -2059,7 +2063,11 @@ export function buildSagradaFamiliaScene(
         part.obj.visible = true;
         const growShift =
           part.mode === 'growY' ? -(1 - tf.scaleY) * part.halfHeight : 0;
-        part.obj.position.y = part.baseY + tf.offsetY + growShift;
+        part.obj.position.set(
+          part.baseX + tf.offsetX,
+          part.baseY + tf.offsetY + growShift,
+          part.baseZ + tf.offsetZ
+        );
         part.obj.scale.set(
           part.baseScaleX * tf.scaleXY,
           part.baseScaleY * tf.scaleY,

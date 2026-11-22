@@ -82,6 +82,8 @@ export function BasilicaCanvas({
 
   // Refs bridging React props into the persistent WebGL lifecycle
   const yearRef = useRef(year);
+  // Year shown by the model; eases toward yearRef so scrubbing animates piece by piece.
+  const shownYearRef = useRef(year);
   const isPlayingRef = useRef(isPlaying);
   const autoOrbitRef = useRef(autoOrbit);
   const targetTodRef = useRef(timeOfDay);
@@ -513,6 +515,7 @@ export function BasilicaCanvas({
 
     const needsContinuousLoop = () =>
       isPlayingRef.current ||
+      Math.abs(shownYearRef.current - yearRef.current) > 0.01 ||
       autoOrbitRef.current ||
       cycleTodRef.current ||
       isTodTransitioning() ||
@@ -610,8 +613,12 @@ export function BasilicaCanvas({
         camera.position.copy(controls.target).add(_offset);
       }
 
+      const gap = yearRef.current - shownYearRef.current;
+      if (isPlayingRef.current || Math.abs(gap) < 0.01) shownYearRef.current = yearRef.current;
+      else shownYearRef.current += gap * (1 - Math.exp(-dt * Math.min(6, 2 + 90 / Math.abs(gap))));
+
       const atmos = applyAtmosphere(currentTodRef.current);
-      rig.applyProgress(computePhaseProgress(yearRef.current), elapsedTotal, atmos);
+      rig.applyProgress(computePhaseProgress(shownYearRef.current), elapsedTotal, atmos);
       rig.applyLivingScene(
         dt,
         elapsedTotal,
